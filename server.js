@@ -1,23 +1,24 @@
-// Load environment variables from .env file into process.env
+// Load environment variables
 require('dotenv').config();
 
-// Set up Express Server with Helmet Security
+// Import dependencies
 const express = require('express');
-const helmet = require('helmet');
-
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(helmet());
+// Middleware to parse JSON
 app.use(express.json());
 
-// Routes
+// 🔌 Mount your scan route
+const scanRoutes = require('./routes/scan');
+app.use('/scan', scanRoutes);
+
+// Root route (optional)
 app.get('/', (req, res) => {
-  res.send('OSINT Dashboard is live!');
+  res.send('Hello from Express!');
 });
 
-// Start server
+// Start the server
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Server running at http://localhost:${PORT}`);
 });
