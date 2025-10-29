@@ -1,0 +1,24 @@
+# Node.js dependencies
+node_modules/
+
+# Environment variables
+.env
+
+# Logs
+*.log
+
+# OS junk
+.DS_Store
+
+# VS Code settings
+.vscode/
+
+# Coverage reports
+coverage/
+
+# SQLite or local DBs
+*.sqlite
+
+# Optional: build artifacts
+dist/
+build/
