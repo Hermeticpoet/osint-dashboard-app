@@ -37,7 +37,9 @@ function isValidDomain(domain) {
   }
 
   const tld = labels[labels.length - 1];
-  return /^[a-z]{2,}$/i.test(tld);
+  if (!/^[a-z0-9-]{2,}$/i.test(tld)) return false;
+
+  return true;
 }
 
 /**
