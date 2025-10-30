@@ -1,40 +1,32 @@
-exports.handleScan = (req, res) => {
-  const { domain } = req.body;
-
-  if (!domain) {
-    return res.status(400).json({ error: 'Domain is required' });
-  }
-
-  res.json({ message: `Scan initiated for ${domain}` });
-};
 const sslChecker = require('ssl-checker');
 
+/**
+ * Normalizes a potentially messy domain input to a clean FQDN.
+ * Strips protocols, paths, credentials, ports, etc.
+ * @param {string} input - Raw domain/URL string.
+ * @returns {string} Cleaned lowercase domain or empty string if invalid input.
+ */
 function normalizeDomain(input) {
   if (!input || typeof input !== 'string') return '';
-  let d = input.trim().toLowerCase();
+  
+  let domain = input.trim().toLowerCase()
+    .replace(/^[a-z]+:\/\//, '')  // Remove protocol
+    .split(/[\/\?#]/)[0]          // Remove path/query/hash in one go
+    .split('@').pop() || '';      // Remove credentials (user:pass@), fallback to empty if no @
+    domain = domain.split(':')[0] // Remove port
+                   .replace(/\.$/, ''); // Remove trailing dot
 
-  // Remove protocol
-  d = d.replace(/^[a-z]+:\/\//, '');
-
-  // Remove path/query/hash
-  d = d.split('/')[0].split('?')[0].split('#')[0];
-
-  // Remove credentials if present user:pass@
-  if (d.includes('@')) d = d.split('@').pop();
-
-  // Remove port if present :443
-  d = d.split(':')[0];
-
-  // Remove trailing dot
-  if (d.endsWith('.')) d = d.slice(0, -1);
-
-  return d;
+  return domain;
 }
 
+/**
+ * Validates a domain as a basic FQDN.
+ * Checks length, labels, and TLD per DNS rules.
+ * @param {string} domain - Cleaned domain to validate.
+ * @returns {boolean} True if valid.
+ */
 function isValidDomain(domain) {
-  // Basic FQDN validation: labels 1-63 chars, A-Z0-9- not starting/ending with hyphen, at least one dot, total <= 253
-  if (!domain) return false;
-  if (domain.length > 253) return false;
+  if (!domain || domain.length > 253) return false;
 
   const labels = domain.split('.');
   if (labels.length < 2) return false;
@@ -44,31 +36,31 @@ function isValidDomain(domain) {
     if (!labelRe.test(label)) return false;
   }
 
-  // TLD should be alpha and >= 2
   const tld = labels[labels.length - 1];
-  if (!/^[a-z]{2,}$/i.test(tld)) return false;
-
-  return true;
+  return /^[a-z]{2,}$/i.test(tld);
 }
 
+/**
+ * Express.js handler: Initiates an SSL certificate scan for a given domain.
+ * Validates input, normalizes, checks cert, and responds with results.
+ */
 exports.handleScan = async (req, res) => {
   try {
-    const raw = req.body?.domain;
-    if (!raw) {
+    const rawInput = req.body?.domain;
+    if (!rawInput) {
       return res.status(400).json({ error: 'Domain is required' });
     }
 
-    const domain = normalizeDomain(raw);
+    const domain = normalizeDomain(rawInput);
     if (!isValidDomain(domain)) {
-      return res.status(400).json({ error: 'Invalid domain format', input: raw });
+      return res.status(400).json({ error: 'Invalid domain format', input: rawInput });
     }
 
-    const ssl = await sslChecker(domain, { method: 'GET', port: 443 });
+    const sslInfo = await sslChecker(domain, { method: 'GET', port: 443 });
 
-    // Example fields: valid, daysRemaining, validFrom, validTo, validFor[]
     return res.json({
       domain,
-      ssl,
+      ssl: sslInfo,  // Includes valid, daysRemaining, validFrom, validTo, validFor[]
     });
   } catch (err) {
     return res.status(502).json({
