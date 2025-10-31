@@ -89,3 +89,15 @@
 - Improved CSV output with proper escaping
 - Modularized CLI exports for reuse in other scripts or tests
 - CLI now supports efficient, scalable scans with full user control
+
+## 10. Global CLI Setup (Internal Only)
+
+- CLI tool is now installable globally via `npm install -g .` for internal use
+- Added `bin` entry to `package.json` to expose CLI as `osint-scan`
+- Enables usage from any directory, ideal for scripting, automation, and CI pipelines
+- Not yet published to npm — pending stabilization, documentation, and test coverage
+- Publishing will follow once CLI reaches feature freeze and includes:
+  - Semantic versioning
+  - README with usage examples
+  - Automated tests and CI validation
+  - Changelog and release notes
