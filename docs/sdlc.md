@@ -68,3 +68,24 @@
   - `scanDomain()` in `scanDomain.test.js` using full mock coverage for DNS, SSL, and WHOIS
 - Confirmed 100% pass rate across 18 tests in 3 suites
 - System now locked down and ready for expansion into CLI tools, batch scanning, or dashboard integration
+
+## 8. CLI Tool Refactor and Batch Scanning Support
+
+- Refactored CLI tool using `commander` for robust argument parsing and help output
+- Added support for:
+  - `--input <file>`: batch scan domains from a file
+  - `--output <file>`: save results to JSON or CSV
+  - `--format <type>`: choose between `json` or `csv` output
+- Skips invalid domains with warning
+- Adds `timestamp` to each scan result for traceability
+- Uses `ensureDir()` to create output folders if missing
+- CLI now supports single scans, batch scans, and file output — ready for automation and CI pipelines
+
+## 9. CLI Tool: Concurrency and Verbose Enhancements
+
+- Integrated `p-limit` for controlled parallel scanning
+- Added `--verbose` flag for real-time progress and diagnostics
+- Enhanced domain validation to support subdomains and IPs
+- Improved CSV output with proper escaping
+- Modularized CLI exports for reuse in other scripts or tests
+- CLI now supports efficient, scalable scans with full user control
