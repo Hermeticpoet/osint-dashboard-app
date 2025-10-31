@@ -1,6 +1,4 @@
-const sslChecker = require('ssl-checker');
-const dns = require('dns').promises;
-const { getWhoisData } = require('../services/whoisService');
+const { scanDomain } = require('../services/scanDomain');
 
 /**
  * Normalizes a potentially messy domain input to a clean FQDN.
@@ -43,70 +41,16 @@ function isValidDomain(domain) {
 
 /**
  * Handles POST /scan requests.
- * Validates and normalizes domain, resolves DNS, checks SSL cert.
- * Returns domain, IP, and SSL info or appropriate error.
+ * Delegates to scanDomain() and returns result or error.
  */
 async function handleScan(req, res) {
   try {
     const raw = req.body?.domain;
-    if (!raw) {
-      return res.status(400).json({ error: 'Domain is required' });
-    }
-
-    const domain = normalizeDomain(raw);
-    if (!isValidDomain(domain)) {
-      return res.status(400).json({ error: 'Invalid domain format', input: raw });
-    }
-
-    // WHOIS (non-blocking to response errors; omit on failure)
-    let whoisInfo = null;
-    try {
-      whoisInfo = await getWhoisData(domain);
-    } catch (_) {
-      whoisInfo = null;
-    }
-
-    // DNS Lookup
-    let ip;
-    try {
-      const lookupResult = await dns.lookup(domain);
-      ip = lookupResult.address;
-    } catch (dnsErr) {
-      return res.status(404).json({
-        error: 'DNS resolution failed',
-        input: raw,
-        domain,
-        message: dnsErr.message || dnsErr.code || 'Unknown DNS error',
-      });
-    }
-
-    // SSL Checker
-    let ssl;
-    try {
-      ssl = await sslChecker(domain, { method: 'GET', port: 443 });
-    } catch (sslErr) {
-      return res.status(502).json({
-        error: 'SSL check failed',
-        domain,
-        ip,
-        message: sslErr.message || 'Unknown SSL error',
-      });
-    }
-
-    const response = {
-      domain,
-      ip,
-      ssl,
-    };
-    if (whoisInfo) {
-      response.whois = whoisInfo;
-    }
-
-    return res.json(response);
+    const result = await scanDomain(raw);
+    return res.json(result);
   } catch (err) {
-    return res.status(500).json({
-      error: 'Internal server error',
-      message: err?.message || 'Unknown error',
+    return res.status(400).json({
+      error: err.message || 'Scan failed',
     });
   }
 }
@@ -116,3 +60,5 @@ module.exports = {
   normalizeDomain,
   isValidDomain,
 };
+
+
