@@ -46,7 +46,7 @@ function isValidDomain(domain) {
  * Validates and normalizes domain, resolves DNS, checks SSL cert.
  * Returns domain, IP, and SSL info or appropriate error.
  */
-exports.handleScan = async (req, res) => {
+async function handleScan(req, res) {
   try {
     const raw = req.body?.domain;
     if (!raw) {
@@ -109,4 +109,10 @@ exports.handleScan = async (req, res) => {
       message: err?.message || 'Unknown error',
     });
   }
+}
+
+module.exports = {
+  handleScan,
+  normalizeDomain,
+  isValidDomain,
 };
