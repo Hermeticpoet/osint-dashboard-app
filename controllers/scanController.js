@@ -1,5 +1,6 @@
 const sslChecker = require('ssl-checker');
 const dns = require('dns').promises;
+const { getWhoisData } = require('../services/whoisService');
 
 /**
  * Normalizes a potentially messy domain input to a clean FQDN.
@@ -57,6 +58,14 @@ exports.handleScan = async (req, res) => {
       return res.status(400).json({ error: 'Invalid domain format', input: raw });
     }
 
+    // WHOIS (non-blocking to response errors; omit on failure)
+    let whoisInfo = null;
+    try {
+      whoisInfo = await getWhoisData(domain);
+    } catch (_) {
+      whoisInfo = null;
+    }
+
     // DNS Lookup
     let ip;
     try {
@@ -84,11 +93,16 @@ exports.handleScan = async (req, res) => {
       });
     }
 
-    return res.json({
+    const response = {
       domain,
       ip,
       ssl,
-    });
+    };
+    if (whoisInfo) {
+      response.whois = whoisInfo;
+    }
+
+    return res.json(response);
   } catch (err) {
     return res.status(500).json({
       error: 'Internal server error',
