@@ -4,6 +4,9 @@
 
 - Accepts domain input
 - Normalizes, validates, and performs SSL certificate scan
+- Resolves DNS to IP address
+- Performs WHOIS lookup for `.com` and `.net` domains via RDAP
+- Returns combined result with optional `whois` field
 
 ## 2. Validation Logic
 
@@ -19,6 +22,7 @@
 - DNS resolution added using `dns.promises.lookup()` to detect unreachable domains
 - Returns 404 with clear error message if domain cannot be resolved
 - IP address included in successful responses for traceability
+- WHOIS failures are non-blocking and don’t expose sensitive errors
 
 ## 4. Testing
 
@@ -28,6 +32,9 @@
   - Invalid FQDNs
   - Trailing dots
   - Punycode domains (regex passed, DNS failed)
+  - WHOIS integration tested with `google.com` and `example.com`
+  - WHOIS field included only for supported TLDs
+  - Structured output confirmed via `jq`
 
 ## 5. Dependencies
 
