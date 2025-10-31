@@ -34,9 +34,20 @@
 - `ssl-checker` installed via `npm`
 - No external domain parsing libraries yet
 
-## 6. Next Steps
+## 6. WHOIS Lookup Module
 
-- ✅ Add DNS resolution
-- Begin unit test scaffolding
-- Expand logging
-- Document modularity and internationalization plans
+- **File:** `services/whoisService.js`
+- **Function:** `getWhoisData(domain)`
+- **Purpose:** Fetch WHOIS-like data for `.com` and `.net` domains using RDAP
+- **Tech Stack:** Axios for HTTP requests, Verisign RDAP endpoints
+- **Features:**
+  - Domain normalization and validation
+  - TLD detection with endpoint routing
+  - Registrar name extraction from RDAP vCard
+  - Creation and expiration date parsing from RDAP events
+  - Error handling with environment-aware logging
+- **Limitations:**
+  - Only supports `.com` and `.net` domains
+  - Returns `null` for unsupported TLDs or missing data
+
+## 7. Next Steps
