@@ -57,4 +57,14 @@
   - Only supports `.com` and `.net` domains
   - Returns `null` for unsupported TLDs or missing data
 
-## 7. Next Steps
+## 7. Refactor and Full Test Coverage of Domain Scan Pipeline
+
+- Extracted orchestration logic from `handleScan()` into a dedicated service module: `services/scanDomain.js`
+- Centralized exports in `scanController.js` using `module.exports = { ... }` for maintainability and clarity
+- Replaced anonymous export with named `async function handleScan()` for better stack traces and testability
+- Added unit tests for:
+  - `normalizeDomain()` and `isValidDomain()` in `domainUtils.test.js`
+  - `getWhoisData()` in `whoisService.test.js`
+  - `scanDomain()` in `scanDomain.test.js` using full mock coverage for DNS, SSL, and WHOIS
+- Confirmed 100% pass rate across 18 tests in 3 suites
+- System now locked down and ready for expansion into CLI tools, batch scanning, or dashboard integration
