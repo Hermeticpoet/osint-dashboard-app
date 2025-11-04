@@ -1,15 +1,26 @@
 {
   "name": "osint-dashboard",
   "version": "1.0.0",
-  "description": "",
+  "description": "Dashboard and CLI tools for scanning domains and gathering OSINT data",
   "main": "index.js",
+  "bin": {
+    "osint-scan": "./cli/scan.js"
+  },
   "scripts": {
     "test": "jest"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
+  "keywords": [
+    "osint",
+    "cli",
+    "dashboard",
+    "domain",
+    "security",
+    "whois",
+    "ssl"
+  ],
+  "author": "Kevin Walton",
+  "license": "MIT",
+  "type": "module",
   "dependencies": {
     "axios": "^1.13.1",
     "commander": "^14.0.2",

@@ -101,3 +101,11 @@
   - README with usage examples
   - Automated tests and CI validation
   - Changelog and release notes
+
+## 11. CLI Packaging Strategy
+
+- CLI tool (`scan.js`) remains part of the `osint-dashboard` repo for now
+- Structured with `bin` entry and modular exports to allow future publishing
+- CLI can be installed globally via `npm install -g .` for internal use
+- Will consider publishing as `osint-scan` once dashboard stabilizes and CLI reaches feature freeze
+- This approach balances simplicity with future flexibility
