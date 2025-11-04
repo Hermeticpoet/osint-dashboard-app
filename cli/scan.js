@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
-const fs = require('fs/promises');
-const path = require('path');
-const { program } = require('commander'); // npm i commander p-limit
-const pLimit = require('p-limit').default;
-const { scanDomain } = require('../services/scanDomain');
+import fs from 'fs/promises';
+import path from 'path';
+import { program } from 'commander';
+import pLimit from 'p-limit';
+import { scanDomain } from '../services/scanDomain.js'; // Note the .js extension
 
 program
   .name('scan')
@@ -37,17 +37,23 @@ program
       const filePath = path.resolve(options.input);
       try {
         const content = await fs.readFile(filePath, 'utf-8');
-        const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
+        const lines = content
+          .split('\n')
+          .map(l => l.trim())
+          .filter(Boolean);
         for (const line of lines) {
           if (!isValidDomain(line)) {
-            console.warn(options.verbose ? `Skipping invalid domain: ${line}` : undefined);
+            if (options.verbose)
+              console.warn(`Skipping invalid domain: ${line}`);
             continue;
           }
           domains.push(line);
           loadedFromFile++;
         }
         if (options.verbose) {
-          console.log(`Loaded ${loadedFromFile} domains from ${filePath}. Total: ${domains.length}`);
+          console.log(
+            `Loaded ${loadedFromFile} domains from ${filePath}. Total: ${domains.length}`
+          );
         }
       } catch (err) {
         if (err.code === 'ENOENT') {
@@ -65,18 +71,22 @@ program
     }
 
     if (options.verbose) {
-      console.log(`Scanning ${domains.length} domains with concurrency ${options.concurrency}...`);
+      console.log(
+        `Scanning ${domains.length} domains with concurrency ${options.concurrency}...`
+      );
       if (options.noWhois) console.log('WHOIS lookup is disabled.');
     }
 
     const { results, summary } = await runBatchScan(domains, {
-      concurrency: Math.max(1, options.concurrency), // Prevent 0
+      concurrency: Math.max(1, options.concurrency),
       skipWhois: options.noWhois,
       verbose: options.verbose,
     });
 
     if (options.verbose) {
-      console.log(`Scan complete. Summary: ${summary.succeeded}/${summary.total} succeeded.`);
+      console.log(
+        `Scan complete. Summary: ${summary.succeeded}/${summary.total} succeeded.`
+      );
     }
 
     const output = formatResults(results, options.format);
@@ -92,10 +102,8 @@ program
 
 program.parse();
 
-// Exports for reusability
-module.exports = { runBatchScan, isValidDomain, formatResults };
+export { runBatchScan, isValidDomain, formatResults };
 
-// Helpers
 async function runBatchScan(domains, opts) {
   const limit = pLimit(opts.concurrency);
   let completed = 0;
@@ -105,37 +113,47 @@ async function runBatchScan(domains, opts) {
     domains.map(domain =>
       limit(async () => {
         if (opts.verbose) {
-          process.stdout.write(`\rProgress: ${++completed}/${total} (${Math.round((completed / total) * 100)}%)`);
+          process.stdout.write(
+            `\rProgress: ${++completed}/${total} (${Math.round(
+              (completed / total) * 100
+            )}%)`
+          );
         }
         return runScan(domain, opts);
       })
     )
   );
 
-  if (opts.verbose) console.log('\n'); // Newline after progress
+  if (opts.verbose) console.log('\n');
 
   const succeeded = results.filter(r => !r.error).length;
   return {
     results,
-    summary: { succeeded, failed: total - succeeded, total }
+    summary: { succeeded, failed: total - succeeded, total },
   };
 }
 
 async function runScan(target, options = {}) {
-  if (options.verbose) console.log(`\nScanning: ${target}`); // Newline for multi-line verbose
+  if (options.verbose) console.log(`\nScanning: ${target}`);
   try {
     const result = await scanDomain(target, { skipWhois: options.skipWhois });
     return { domain: target, result, timestamp: new Date().toISOString() };
   } catch (err) {
-    if (options.verbose) console.warn(`Error scanning ${target}: ${err.message}`);
-    return { domain: target, error: err.message, timestamp: new Date().toISOString() };
+    if (options.verbose)
+      console.warn(`Error scanning ${target}: ${err.message}`);
+    return {
+      domain: target,
+      error: err.message,
+      timestamp: new Date().toISOString(),
+    };
   }
 }
 
 function isValidDomain(domain) {
-  // Enhanced: Allows subdomains and basic IPs (expand as needed)
-  const subdomainRegex = /^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.[a-zA-Z]{2,}$/;
-  const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+  const subdomainRegex =
+    /^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.[a-zA-Z]{2,}$/;
+  const ipRegex =
+    /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
   return subdomainRegex.test(domain) || ipRegex.test(domain);
 }
 
@@ -144,14 +162,15 @@ function formatResults(results, format = 'json') {
     const headers = ['domain', 'error', 'timestamp', 'result'];
     const csv = [headers.join(',')];
     results.forEach(r => {
-      // Escape CSV: Wrap fields with potential commas/quotes
-      const esc = (str) => `"${String(str).replace(/"/g, '""')}"`;
-      csv.push([
-        esc(r.domain),
-        esc(r.error || ''),
-        esc(r.timestamp),
-        esc(JSON.stringify(r.result || {}))
-      ].join(','));
+      const esc = str => `"${String(str).replace(/"/g, '""')}"`;
+      csv.push(
+        [
+          esc(r.domain),
+          esc(r.error || ''),
+          esc(r.timestamp),
+          esc(JSON.stringify(r.result || {})),
+        ].join(',')
+      );
     });
     return csv.join('\n');
   }

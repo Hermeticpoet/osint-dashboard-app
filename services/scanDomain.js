@@ -1,17 +1,18 @@
-const sslChecker = require('ssl-checker');
-const dns = require('dns').promises;
-const { getWhoisData } = require('./whoisService');
+import sslChecker from 'ssl-checker';
+import dns from 'dns/promises';
+import { getWhoisData } from './whoisService.js';
+import {
+  normalizeDomain,
+  isValidDomain,
+} from '../controllers/scanController.js';
 
 async function scanDomain(rawInput) {
   const domain = rawInput?.trim().toLowerCase();
   if (!domain) throw new Error('Domain is required');
 
-  // Normalize and validate
-  const { normalizeDomain, isValidDomain } = require('../controllers/scanController');
   const cleanDomain = normalizeDomain(domain);
   if (!isValidDomain(cleanDomain)) throw new Error('Invalid domain format');
 
-  // WHOIS
   let whoisInfo = null;
   try {
     whoisInfo = await getWhoisData(cleanDomain);
@@ -19,7 +20,6 @@ async function scanDomain(rawInput) {
     whoisInfo = null;
   }
 
-  // DNS
   let ip;
   try {
     const lookupResult = await dns.lookup(cleanDomain);
@@ -28,7 +28,6 @@ async function scanDomain(rawInput) {
     throw new Error(`DNS resolution failed: ${err.message || err.code}`);
   }
 
-  // SSL
   let ssl;
   try {
     ssl = await sslChecker(cleanDomain, { method: 'GET', port: 443 });
@@ -41,4 +40,4 @@ async function scanDomain(rawInput) {
   return result;
 }
 
-module.exports = { scanDomain };
+export { scanDomain };

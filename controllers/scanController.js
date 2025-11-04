@@ -1,4 +1,4 @@
-const { scanDomain } = require('../services/scanDomain');
+import { scanDomain } from '../services/scanDomain.js';
 
 /**
  * Normalizes a potentially messy domain input to a clean FQDN.
@@ -55,10 +55,4 @@ async function handleScan(req, res) {
   }
 }
 
-module.exports = {
-  handleScan,
-  normalizeDomain,
-  isValidDomain,
-};
-
-
+export { handleScan, normalizeDomain, isValidDomain };

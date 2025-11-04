@@ -1,0 +1,40 @@
+[
+  {
+    "domain": "google.com",
+    "result": {
+      "domain": "google.com",
+      "ip": "74.125.193.100",
+      "ssl": {
+        "daysRemaining": 62,
+        "valid": true,
+        "validFrom": "2025-10-13T08:37:33.000Z",
+        "validTo": "2026-01-05T08:37:32.000Z"
+      },
+      "whois": {
+        "registrarName": "MarkMonitor Inc.",
+        "creationDate": "1997-09-15T04:00:00Z",
+        "expirationDate": "2028-09-14T04:00:00Z"
+      }
+    },
+    "timestamp": "2025-11-04T12:18:08.088Z"
+  },
+  {
+    "domain": "example.com",
+    "result": {
+      "domain": "example.com",
+      "ip": "23.220.75.245",
+      "ssl": {
+        "daysRemaining": 72,
+        "valid": true,
+        "validFrom": "2025-01-15T00:00:00.000Z",
+        "validTo": "2026-01-15T23:59:59.000Z"
+      },
+      "whois": {
+        "registrarName": "RESERVED-Internet Assigned Numbers Authority",
+        "creationDate": "1995-08-14T04:00:00Z",
+        "expirationDate": "2026-08-13T04:00:00Z"
+      }
+    },
+    "timestamp": "2025-11-04T12:18:09.354Z"
+  }
+]

@@ -1,4 +1,4 @@
-const axios = require('axios');
+import axios from 'axios';
 
 /**
  * Normalize arbitrary input into a bare domain string.
@@ -46,19 +46,25 @@ function isValidDomain(domain) {
  */
 function extractRegistrarName(entities) {
   if (!Array.isArray(entities)) return null;
-  const registrar = entities.find(e => Array.isArray(e.roles) && e.roles.includes('registrar'));
+  const registrar = entities.find(
+    e => Array.isArray(e.roles) && e.roles.includes('registrar')
+  );
   if (!registrar || !Array.isArray(registrar.vcardArray)) return null;
 
-  // vcardArray format: ["vcard", [ [fieldName, params, type, value], ... ]]
-  const [, vItems] = registrar.vcardArray; // destructure to get the items array
+  const [, vItems] = registrar.vcardArray;
   if (!Array.isArray(vItems)) return null;
 
-  // Prefer 'fn' (formatted name); fallback to 'org' if 'fn' is missing/empty
-  const fnItem = vItems.find(item => Array.isArray(item) && item[0] === 'fn' && item.length >= 4);
-  if (fnItem && typeof fnItem[3] === 'string' && fnItem[3].trim()) return fnItem[3].trim();
+  const fnItem = vItems.find(
+    item => Array.isArray(item) && item[0] === 'fn' && item.length >= 4
+  );
+  if (fnItem && typeof fnItem[3] === 'string' && fnItem[3].trim())
+    return fnItem[3].trim();
 
-  const orgItem = vItems.find(item => Array.isArray(item) && item[0] === 'org' && item.length >= 4);
-  if (orgItem && typeof orgItem[3] === 'string' && orgItem[3].trim()) return orgItem[3].trim();
+  const orgItem = vItems.find(
+    item => Array.isArray(item) && item[0] === 'org' && item.length >= 4
+  );
+  if (orgItem && typeof orgItem[3] === 'string' && orgItem[3].trim())
+    return orgItem[3].trim();
 
   return null;
 }
@@ -75,48 +81,56 @@ function extractEventDate(events, actionNames) {
   return target?.eventDate || null;
 }
 
- /**
+/**
  * Fetch WHOIS-like data via RDAP for .com and .net domains.
  * @param {string} domain
  * @returns {Promise<{registrarName: string, creationDate: string, expirationDate: string} | null>}
  */
 async function getWhoisData(domain) {
-    try {
-      const normalized = normalizeDomain(domain);
-      if (!isValidDomain(normalized)) return null;
-  
-      const tld = normalized.split('.').pop().toLowerCase();
-      const endpointMap = {
-        com: 'https://rdap.verisign.com/com/v1/domain/',
-        net: 'https://rdap.verisign.com/net/v1/domain/',
-      };
-      const base = endpointMap[tld];
-      if (!base) return null; // unsupported TLD
-  
-      const url = `${base}${encodeURIComponent(normalized)}`;
-      const resp = await axios.get(url, {
-        timeout: 10000,
-        validateStatus: (status) => status >= 200 && status < 300,
-      });
-  
-      const data = resp?.data;
-      if (!data || typeof data !== 'object') return null;
-  
-      const registrarName = extractRegistrarName(data.entities);
-      const creationDate = extractEventDate(data.events, ['registration', 'creation', 'registered']);
-      const expirationDate = extractEventDate(data.events, ['expiration', 'expire', 'expiry']);
-  
-      if (!registrarName || !creationDate || !expirationDate) {
-        return null;
-      }
-  
-      return { registrarName, creationDate, expirationDate };
-    } catch (e) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('getWhoisData error:', e?.message || e);
-      }
+  try {
+    const normalized = normalizeDomain(domain);
+    if (!isValidDomain(normalized)) return null;
+
+    const tld = normalized.split('.').pop().toLowerCase();
+    const endpointMap = {
+      com: 'https://rdap.verisign.com/com/v1/domain/',
+      net: 'https://rdap.verisign.com/net/v1/domain/',
+    };
+    const base = endpointMap[tld];
+    if (!base) return null;
+
+    const url = `${base}${encodeURIComponent(normalized)}`;
+    const resp = await axios.get(url, {
+      timeout: 10000,
+      validateStatus: status => status >= 200 && status < 300,
+    });
+
+    const data = resp?.data;
+    if (!data || typeof data !== 'object') return null;
+
+    const registrarName = extractRegistrarName(data.entities);
+    const creationDate = extractEventDate(data.events, [
+      'registration',
+      'creation',
+      'registered',
+    ]);
+    const expirationDate = extractEventDate(data.events, [
+      'expiration',
+      'expire',
+      'expiry',
+    ]);
+
+    if (!registrarName || !creationDate || !expirationDate) {
       return null;
     }
-  }
 
-module.exports = { getWhoisData };
+    return { registrarName, creationDate, expirationDate };
+  } catch (e) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('getWhoisData error:', e?.message || e);
+    }
+    return null;
+  }
+}
+
+export { getWhoisData };

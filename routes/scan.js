@@ -1,7 +1,8 @@
-const express = require('express');
+import express from 'express';
+import { handleScan } from '../controllers/scanController.js';
+
 const router = express.Router();
-const scanController = require('../controllers/scanController.js');
 
-router.post('/', scanController.handleScan);
+router.post('/', handleScan);
 
-module.exports = router;
+export default router;

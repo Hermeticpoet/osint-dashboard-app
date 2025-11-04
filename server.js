@@ -1,15 +1,15 @@
-// Load environment variables
-require('dotenv').config();
+import dotenv from 'dotenv';
+dotenv.config();
 
-// Import dependencies
-const express = require('express');
+import express from 'express';
+import scanRoutes from './routes/scan.js';
+
 const app = express();
 
 // Middleware to parse JSON
 app.use(express.json());
 
 // 🔌 Mount your scan route
-const scanRoutes = require('./routes/scan');
 app.use('/scan', scanRoutes);
 
 // Root route (optional)
