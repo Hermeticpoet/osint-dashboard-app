@@ -1,3 +1,4 @@
+import { insertResult } from '../db/db.js';
 import { scanDomain } from '../services/scanDomain.js';
 
 /**
@@ -47,7 +48,18 @@ async function handleScan(req, res) {
   try {
     const raw = req.body?.domain;
     const result = await scanDomain(raw);
-    return res.json(result);
+
+    // NEW: Save result to the database
+    const rowId = insertResult({
+      domain: result.domain,
+      ip: result.ip,
+      ssl: result.ssl,
+      whois: result.whois || null,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Return the scan result plus the database row ID
+    return res.json({ ...result, id: rowId });
   } catch (err) {
     return res.status(400).json({
       error: err.message || 'Scan failed',
