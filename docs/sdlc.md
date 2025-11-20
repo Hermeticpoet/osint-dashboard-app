@@ -109,3 +109,21 @@
 - CLI can be installed globally via `npm install -g .` for internal use
 - Will consider publishing as `osint-scan` once dashboard stabilizes and CLI reaches feature freeze
 - This approach balances simplicity with future flexibility
+
+## 12. Results Management Enhancements
+
+- Added `deleteResult(id)` function in `db/db.js` using better-sqlite3.
+- Created `controllers/resultsController.js` with `handleDeleteResult(req, res)` to validate IDs and remove rows.
+- Updated `routes/results.js` to include `DELETE /results/:id`.
+- Endpoint tested with curl:
+  - Returns `{ "deleted": true }` on success
+  - Returns `{ "error": "Result not found" }` if row does not exist
+  - Returns `{ "error": "Invalid result id" }` for malformed IDs
+- Confirms full lifecycle coverage: insert → query → delete.
+
+## 13. Utility Functions
+
+- Added `utils/domainUtils.js` with `cleanDomains(list)` helper.
+- Normalizes, deduplicates, and validates lists of domains.
+- Uses `URL()` constructor for robust hostname parsing.
+- Future use: batch ingestion routes, CLI bulk scans, or CSV import pipelines.
