@@ -48,7 +48,7 @@ function insertResult({ domain, ip, ssl, whois, timestamp }) {
   const createdAt = timestamp || new Date().toISOString();
 
   const info = stmt.run(
-    domain.toLowerCase(), // normalize domain casing
+    domain.toLowerCase(),
     ip,
     sslValid,
     sslFrom,
@@ -86,4 +86,15 @@ function getResults({ domain, limit = 50, since } = {}) {
   return stmt.all(...params);
 }
 
-export { db, insertResult, getResults };
+/**
+ * Delete a result row by ID.
+ * @param {number} id - Primary key of the row to delete.
+ * @returns {boolean} True if a row was deleted, otherwise false.
+ */
+function deleteResult(id) {
+  const stmt = db.prepare(`DELETE FROM results WHERE id = ?`);
+  const info = stmt.run(id);
+  return info.changes > 0;
+}
+
+export { db, insertResult, getResults, deleteResult };

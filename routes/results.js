@@ -1,6 +1,7 @@
 // routes/results.js
 import express from 'express';
 import { getResults } from '../db/db.js';
+import { handleDeleteResult } from '../controllers/resultsController.js';
 
 const router = express.Router();
 
@@ -24,5 +25,11 @@ router.get('/', (req, res) => {
     res.status(500).json({ error: err.message || 'Failed to fetch results' });
   }
 });
+
+/**
+ * DELETE /results/:id
+ * Removes a stored result row by ID.
+ */
+router.delete('/:id', handleDeleteResult);
 
 export default router;
