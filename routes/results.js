@@ -1,6 +1,10 @@
 // routes/results.js
 import express from 'express';
-import { handleGetResults, handleDeleteResult } from '../controllers/resultsController.js';
+import {
+  handleGetResults,
+  handleDeleteResult,
+} from '../controllers/resultsController.js';
+import { handleExportResults } from '../controllers/exportResultsController.js';
 
 const router = express.Router();
 
@@ -13,6 +17,12 @@ const router = express.Router();
  *  - since: ISO timestamp; only return rows after this time (optional)
  */
 router.get('/', handleGetResults);
+
+/**
+ * GET /results/export.csv
+ * Same filters/pagination as /results but returns CSV attachment.
+ */
+router.get('/export.csv', handleExportResults);
 
 /**
  * DELETE /results/:id

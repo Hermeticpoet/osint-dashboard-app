@@ -68,27 +68,28 @@ Located in `utils/domainUtils.js`.
 
 Intended for batch ingestion routes, CLI tools, or preprocessing domain lists before scanning.
 
-### GET /results
+### GET /results/export.csv
 
-Fetches stored results with optional filters.
+Streams the same data as `GET /results`, but as a downloadable CSV.
 
 Query parameters:
 
 - `domain`: filter by exact domain
 - `limit`: maximum number of rows (default 50)
-- `offset`: number of rows to skip before returning data (default 0)
+- `offset`: number of rows to skip (default 0)
 - `since`: ISO timestamp to filter by creation date
 
 Examples:
 sh
-# first 10 records
-curl "http://localhost:4000/results?limit=10&offset=0"
+# full export (default limit+offset)
+curl -o results.csv "http://localhost:4000/results/export.csv"
 
-# next page of 10 records
-curl "http://localhost:4000/results?limit=10&offset=10"
+# paginated export of example.com results created after a timestamp
+curl -o page2.csv \
+  "http://localhost:4000/results/export.csv?domain=example.com&limit=50&offset=50&since=2024-01-01T00:00:00Z"Response headers:
 
-# filter by domain with pagination
-curl "http://localhost:4000/results?domain=example.com&limit=5&offset=15"
+- `Content-Type: text/csv`
+- `Content-Disposition: attachment; filename="results.csv"`
 
 ## 12. Results Management Enhancements
 

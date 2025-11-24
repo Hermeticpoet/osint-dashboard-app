@@ -132,3 +132,16 @@
 - Normalizes, deduplicates, and validates lists of domains.
 - Uses `URL()` constructor for robust hostname parsing.
 - Future use: batch ingestion routes, CLI bulk scans, or CSV import pipelines.
+
+---
+
+## 14. Export Features
+
+- Added controllers/exportResultsController.js using `json2csv` to convert DB rows into CSV.
+- Route `GET /results/export.csv` reuses the same validation/pagination as `GET /results`.
+- Prepends a timestamp header (# Exported at `ISO timestamp`) for traceability.
+- Returns downloadable CSV with schema‑order fields (id, domain, ip, ssl_valid, ssl_valid_from, ssl_valid_to, ssl_days_remaining, registrar, created_at).
+- If no rows match, returns headers‑only CSV with timestamp line.
+- Validation errors return HTTP 400 with JSON payload; unexpected failures return HTTP 500.
+- Tested via curl to confirm pagination (`limit`/`offset`), filtering (`domain`, `since`), and CSV headers.
+- Future enhancement: flatten nested JSON into explicit CSV columns (SSL, WHOIS, etc.) for easier analysis.
