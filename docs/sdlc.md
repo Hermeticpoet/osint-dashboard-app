@@ -115,11 +115,16 @@
 - Added `deleteResult(id)` function in `db/db.js` using better-sqlite3.
 - Created `controllers/resultsController.js` with `handleDeleteResult(req, res)` to validate IDs and remove rows.
 - Updated `routes/results.js` to include `DELETE /results/:id`.
+- Added pagination support to `GET /results`:
+  - `getResults()` now accepts `offset` with validation.
+  - Controller validates `limit` and `offset`, returning 400 for invalid query params.
+  - Enables efficient batching via `?limit=50&offset=100`.
 - Endpoint tested with curl:
   - Returns `{ "deleted": true }` on success
   - Returns `{ "error": "Result not found" }` if row does not exist
   - Returns `{ "error": "Invalid result id" }` for malformed IDs
-- Confirms full lifecycle coverage: insert → query → delete.
+  - Pagination verified with >100 rows and sequential offsets
+- Confirms full lifecycle coverage: insert → query → paginate → delete.
 
 ## 13. Utility Functions
 

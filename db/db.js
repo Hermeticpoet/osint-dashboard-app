@@ -48,7 +48,7 @@ function insertResult({ domain, ip, ssl, whois, timestamp }) {
   const createdAt = timestamp || new Date().toISOString();
 
   const info = stmt.run(
-    domain.toLowerCase(),
+    domain.toLowerCase(), // normalize domain casing
     ip,
     sslValid,
     sslFrom,
@@ -60,7 +60,21 @@ function insertResult({ domain, ip, ssl, whois, timestamp }) {
   return info.lastInsertRowid;
 }
 
-function getResults({ domain, limit = 50, since } = {}) {
+/**
+ * Retrieve stored scan results with optional filters and pagination.
+ * @param {Object} opts
+ * @param {string} [opts.domain] - Exact domain match (stored in lowercase).
+ * @param {number} [opts.limit=50] - Max rows to return.
+ * @param {number} [opts.offset=0] - Rows to skip before returning results.
+ * @param {string} [opts.since] - ISO timestamp to filter by creation date.
+ * @returns {Array<Object>} Result rows ordered by newest first.
+ */
+function getResults({ domain, limit = 50, offset = 0, since } = {}) {
+  const numericOffset = Number(offset ?? 0);
+  if (!Number.isInteger(numericOffset) || numericOffset < 0) {
+    throw new Error('Offset must be a non-negative integer');
+  }
+
   let base = `SELECT * FROM results`;
   const where = [];
   const params = [];
@@ -76,10 +90,16 @@ function getResults({ domain, limit = 50, since } = {}) {
   if (where.length) {
     base += ` WHERE ` + where.join(' AND ');
   }
+
   base += ` ORDER BY created_at DESC`;
+
   if (limit) {
-    base += ` LIMIT ?`;
-    params.push(Number(limit));
+    base += ` LIMIT ? OFFSET ?`;
+    params.push(Number(limit), numericOffset);
+  } else {
+    // Even if limit is falsy, ensure OFFSET is respected by setting LIMIT to -1 (all rows)
+    base += ` LIMIT -1 OFFSET ?`;
+    params.push(numericOffset);
   }
 
   const stmt = db.prepare(base);
