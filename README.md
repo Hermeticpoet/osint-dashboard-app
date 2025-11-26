@@ -12,7 +12,9 @@ A modular OSINT dashboard for scanning domains, gathering intelligence, and visu
   - `/scan` to insert results
   - `/results` to query results
   - `/results/:id` to delete results
+  - `/results/export.csv` to export results as CSV
 - Utilities for domain cleaning and normalization
+- Uses SQLite (`osint.db` created automatically on first run)
 
 ## Installation
 
@@ -80,13 +82,15 @@ Query parameters:
 - `since`: ISO timestamp to filter by creation date
 
 Examples:
-sh
-# full export (default limit+offset)
-curl -o results.csv "http://localhost:4000/results/export.csv"
 
-# paginated export of example.com results created after a timestamp
+#### full export (default limit+offset)
+
+curl -o results.csv "<http://localhost:4000/results/export.csv>"
+
+##### paginated export of example.com results created after a timestamp
+
 curl -o page2.csv \
-  "http://localhost:4000/results/export.csv?domain=example.com&limit=50&offset=50&since=2024-01-01T00:00:00Z"Response headers:
+ "<http://localhost:4000/results/export.csv?domain=example.com&limit=50&offset=50&since=2024-01-01T00:00:00Z"Response> headers:
 
 - `Content-Type: text/csv`
 - `Content-Disposition: attachment; filename="results.csv"`

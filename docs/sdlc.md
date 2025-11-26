@@ -144,4 +144,34 @@
 - If no rows match, returns headers‑only CSV with timestamp line.
 - Validation errors return HTTP 400 with JSON payload; unexpected failures return HTTP 500.
 - Tested via curl to confirm pagination (`limit`/`offset`), filtering (`domain`, `since`), and CSV headers.
-- Future enhancement: flatten nested JSON into explicit CSV columns (SSL, WHOIS, etc.) for easier analysis.
+
+---
+
+## 15. Flattened CSV Export Enhancement
+
+- **File:** `controllers/exportResultsController.js`
+- **Endpoint:** `GET /results/export.csv`
+- **Purpose:** Refactor CSV export to flatten nested JSON stored in the `result` column into explicit CSV fields.
+- **Design Decisions:**
+
+  - Adopted `json2csv` `Parser` for robust CSV generation with schema enforcement and proper escaping.
+  - Parse `result` JSON string safely (`try/catch`) to avoid crashes on malformed data.
+  - Prefer direct DB columns when present; fall back to parsed JSON values for SSL and WHOIS.
+  - Normalize WHOIS fields (`creationDate` vs `creation_date`, `expirationDate` vs `expiration_date`).
+  - Explicit schema fields exported in fixed order:
+    - `id`, `domain`, `created_at`, `ip`
+    - `ssl_valid`, `ssl_valid_from`, `ssl_valid_to`, `ssl_days_remaining`
+    - `registrar`, `whois_creationDate`, `whois_expirationDate`
+  - Header comments include timestamp, row count, applied limit, and offset.
+  - Hard safety limit of 50,000 rows enforced; validation for `limit` and `offset`.
+
+- **Error Handling:**
+  - Malformed JSON → log warning, leave flattened fields empty/null.
+  - Export failures → return `500` with `{ "error": "Failed to generate CSV export" }`.
+- **Impact:**
+  - Analysts can consume CSV exports directly without manual JSON parsing.
+  - Maintains backward compatibility with `/results` JSON API.
+  - Provides clearer separation between raw nested API data and flattened export format.
+- **Testing:**
+  - Verified with sample rows containing full JSON, partial JSON, and malformed JSON.
+  - Confirmed fallback logic and header metadata in exported CSV.

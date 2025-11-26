@@ -1,0 +1,9 @@
+# Domain Results Export
+# Generated: 2025-11-26T16:49:00.558Z
+# Total rows exported: 3
+# Applied limit: 10
+# Offset: 0
+"id","domain","created_at","ip","ssl_valid","ssl_valid_from","ssl_valid_to","ssl_days_remaining","registrar","whois_creationDate","whois_expirationDate"
+3,"broken.com","2025-11-25T14:00:00Z","198.51.100.5",0,"2025-11-01T00:00:00Z","2025-12-01T00:00:00Z",30,,,
+2,"partial.com","2025-11-25T13:00:00Z","192.0.2.1",0,"2025-11-01T00:00:00Z","2025-12-01T00:00:00Z",30,"Partial Registrar","2010-01-01T00:00:00Z",
+1,"example.com","2025-11-25T12:00:00Z","93.184.216.34",1,"2025-01-01T00:00:00Z","2026-01-01T00:00:00Z",365,"Example Registrar","2000-05-15T00:00:00Z","2030-05-15T00:00:00Z"
