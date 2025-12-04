@@ -209,6 +209,7 @@ curl "http://localhost:4000/results?limit=50&offset=100"
 ```
 
 Invalid limit or offset values return HTTP 400 with a clear error message.
+
 Full lifecycle supported: insert → query → filter → paginate → export → delete
 
 ## License
