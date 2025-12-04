@@ -29,8 +29,17 @@ db.exec(`
     ssl_valid_to TEXT NOT NULL,
     ssl_days_remaining INTEGER NOT NULL,
     registrar TEXT,
+    whois_expirationDate TEXT,
     created_at TEXT NOT NULL
   );
+`);
+
+// NEW: indexes to accelerate filters (idempotent in SQLite)
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_results_ssl_valid ON results (ssl_valid);
+  CREATE INDEX IF NOT EXISTS idx_results_registrar ON results (registrar);
+  CREATE INDEX IF NOT EXISTS idx_results_created_at ON results (created_at);
+  CREATE INDEX IF NOT EXISTS idx_results_whois_expiration ON results (whois_expirationDate);
 `);
 
 function insertResult({ domain, ip, ssl, whois, timestamp }) {
@@ -69,7 +78,18 @@ function insertResult({ domain, ip, ssl, whois, timestamp }) {
  * @param {string} [opts.since] - ISO timestamp to filter by creation date.
  * @returns {Array<Object>} Result rows ordered by newest first.
  */
-function getResults({ domain, limit = 50, offset = 0, since } = {}) {
+function getResults({
+  domain,
+  limit = 50,
+  offset = 0,
+  since,
+  sslValid,
+  registrar,
+  createdFrom,
+  createdTo,
+  whoisExpirationFrom,
+  whoisExpirationTo,
+} = {}) {
   const numericOffset = Number(offset ?? 0);
   if (!Number.isInteger(numericOffset) || numericOffset < 0) {
     throw new Error('Offset must be a non-negative integer');
@@ -87,6 +107,31 @@ function getResults({ domain, limit = 50, offset = 0, since } = {}) {
     where.push(`created_at >= ?`);
     params.push(since);
   }
+  if (typeof sslValid === 'boolean') {
+    where.push(`ssl_valid = ?`);
+    params.push(sslValid ? 1 : 0);
+  }
+  if (registrar) {
+    where.push(`registrar = ?`);
+    params.push(registrar);
+  }
+  if (createdFrom) {
+    where.push(`created_at >= ?`);
+    params.push(createdFrom);
+  }
+  if (createdTo) {
+    where.push(`created_at <= ?`);
+    params.push(createdTo);
+  }
+  if (whoisExpirationFrom) {
+    where.push(`whois_expirationDate >= ?`);
+    params.push(whoisExpirationFrom);
+  }
+  if (whoisExpirationTo) {
+    where.push(`whois_expirationDate <= ?`);
+    params.push(whoisExpirationTo);
+  }
+
   if (where.length) {
     base += ` WHERE ` + where.join(' AND ');
   }
@@ -97,7 +142,6 @@ function getResults({ domain, limit = 50, offset = 0, since } = {}) {
     base += ` LIMIT ? OFFSET ?`;
     params.push(Number(limit), numericOffset);
   } else {
-    // Even if limit is falsy, ensure OFFSET is respected by setting LIMIT to -1 (all rows)
     base += ` LIMIT -1 OFFSET ?`;
     params.push(numericOffset);
   }

@@ -175,3 +175,21 @@
 - **Testing:**
   - Verified with sample rows containing full JSON, partial JSON, and malformed JSON.
   - Confirmed fallback logic and header metadata in exported CSV.
+
+### 16. Advanced Filtering and Indexing Enhancement
+
+- Extended `GET /results` controller and DB layer to support filters for:
+  - `ssl_valid` (boolean true/false)
+  - `registrar` (string match)
+  - `created_at` date ranges
+  - `whois_expirationDate` ranges  
+    while preserving pagination and limit/offset parameters.
+- Refactored schema in `db.js` so `whois_expirationDate` is part of the permanent table definition, ensuring reproducibility across fresh database setups.
+- Added SQLite indexes on `ssl_valid`, `registrar`, `created_at`, and `whois_expirationDate` for faster lookups; all created idempotently (`IF NOT EXISTS`) to avoid duplication errors.
+- Introduced `db/seed.sql` to populate test data covering all filter cases (ssl_valid true/false, multiple registrars, created_at ranges, WHOIS expiration windows, combined filters).
+- Validation layer ensures boolean and date parameters are well-formed (`YYYY-MM-DD`) before hitting the database.
+- Verified functionality with targeted `curl` tests:
+  - Single filters (ssl_valid, registrar, created_at, whois_expirationDate)
+  - Combined filters with pagination
+  - Negative cases (invalid values return HTTP 400)
+- Confirmed accurate filtering and pagination performance improvements with seeded dataset.

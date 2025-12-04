@@ -58,55 +58,105 @@ Example:
 curl "http://localhost:4000/results?domain=example.com&limit=2"
 ```
 
+### Advanced Filtering
+
+`GET /results` supports these powerful optional query parameters:
+
+| Parameter                                       | Description                                  | Example / Values       |
+| ----------------------------------------------- | -------------------------------------------- | ---------------------- |
+| `domain`                                        | Exact domain match (case-insensitive)        | `example.com`          |
+| `limit`                                         | Maximum rows to return (default: 50)         | `100`                  |
+| `offset`                                        | Rows to skip for pagination (default: 0)     | `50`                   |
+| `since`                                         | ISO timestamp filter on `created_at`         | `2025-01-01T00:00:00Z` |
+| `ssl_valid`                                     | Filter valid or invalid/expired certificates | `true` or `false`      |
+| `registrar`                                     | Exact registrar name                         | `NameCheap`, `GoDaddy` |
+| `created_from` / `created_to`                   | YYYY-MM-DD bounds for scan date              | `2025-11-01`           |
+| `whois_expiration_from` / `whois_expiration_to` | YYYY-MM-DD bounds for WHOIS expiration       | `2025-12-04`           |
+
+#### Real-world threat hunting examples
+
+```zsh
+# Expired or invalid SSL certificates (high risk)
+curl "http://localhost:4000/results?ssl_valid=false&limit=200"
+```
+
+```zsh
+# Domain expiring in the next 30 days (takeover target)
+curl "http://localhost:4000/results?whois_expiration_from=2025-12-04&whois_expiration_to=2026-01-04"
+```
+
+```zsh
+# Recently scanned domains from a specific registrar
+curl "http://localhost:4000/results?created_from=2025-11-01&registrar=NameCheap&limit=100"
+```
+
+```zsh
+# Pagination – third page of results
+curl "http://localhost:4000/results?limit=50&offset=100"
+```
+
 ## Utilities
 
-### cleanDomains(list)
+### `cleanDomains(list)` – `utils/domainUtils.js`
 
-Located in `utils/domainUtils.js`.
+Cleans and deduplicates domain lists:
 
-- Cleans and deduplicates domain lists.
-- Normalizes casing, strips protocols/paths, and validates FQDNs.
-- Returns a sorted array of valid domains.
+- Converts to lowercase
+- Strips `http://`, `https://`, paths, queries, and ports
+- Validates proper FQDN format
+- Returns a **sorted array of unique valid domains**
 
-Intended for batch ingestion routes, CLI tools, or preprocessing domain lists before scanning.
+Ideal for preprocessing bulk lists before batch scanning.
 
-### GET /results/export.csv
+### GET `/results/export.csv`
 
-Streams the same data as `GET /results`, but as a downloadable CSV.
+Exports filtered results as a downloadable CSV file (supports **all the same filters** as `GET /results`).
 
-Query parameters:
+#### Examples
 
-- `domain`: filter by exact domain
-- `limit`: maximum number of rows (default 50)
-- `offset`: number of rows to skip (default 0)
-- `since`: ISO timestamp to filter by creation date
+```zsh
+# Full export
+curl -OJ "http://localhost:4000/results/export.csv"
+```
 
-Examples:
+```zsh
+# Export only domains expiring this month
+curl -o expiring-december.csv "http://localhost:4000/results/export.csv?whois_expiration_from=2025-12-01&whois_expiration_to=2025-12-31"
+```
 
-#### full export (default limit+offset)
+```zsh
+# Paginated and filtered export
+curl -o page3.csv "http://localhost:4000/results/export.csv?ssl_valid=false&limit=100&offset=200"
+```
 
-curl -o results.csv "<http://localhost:4000/results/export.csv>"
+Content-Type: text/csv
+Content-Disposition: attachment; filename="results.csv"
 
-##### paginated export of example.com results created after a timestamp
+### DELETE `/results/:id`
 
-curl -o page2.csv \
- "<http://localhost:4000/results/export.csv?domain=example.com&limit=50&offset=50&since=2024-01-01T00:00:00Z"Response> headers:
+Permanently removes a specific scan result from the database.
 
-- `Content-Type: text/csv`
-- `Content-Disposition: attachment; filename="results.csv"`
+```zsh
+curl -X DELETE http://localhost:4000/results/42
+# → { "deleted": true }
+```
 
-## 12. Results Management Enhancements
+#### Error responses
 
-- Added `deleteResult(id)` function in `db/db.js` using better-sqlite3.
-- Created `controllers/resultsController.js` with `handleDeleteResult(req, res)` to validate IDs and remove rows.
-- Updated `routes/results.js` to include `DELETE /results/:id`.
-- Added pagination support to `GET /results`:
-  - `getResults()` now accepts `offset` with validation.
-  - Controller validates `limit` and `offset`, returning 400 for invalid query params.
-  - Enables efficient batching via `?limit=50&offset=100`.
-- Endpoint tested with curl:
-  - Returns `{ "deleted": true }` on success
-  - Returns `{ "error": "Result not found" }` if row does not exist
-  - Returns `{ "error": "Invalid result id" }` for malformed IDs
-  - Pagination verified with >100 rows and sequential offsets
-- Confirms full lifecycle coverage: insert → query → paginate → delete.
+```json
+{ "error": "Invalid result id" }
+```
+
+##### Pagination support
+
+All GET /results and GET /results/export.csv queries support:
+
+- limit – maximum rows to return (default: 50)
+- offset – number of rows to skip (default: 0)
+
+```zsh
+# Third page of results (50 per page)
+curl "http://localhost:4000/results?limit=50&offset=100"
+```
+
+Invalid limit or offset values return HTTP 400 with a clear error message.

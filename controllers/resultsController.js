@@ -6,20 +6,65 @@ import { getResults, deleteResult } from '../db/db.js';
  * Validates pagination/filter params and returns matching rows.
  */
 export function handleGetResults(req, res) {
-  const { domain, limit, since, offset } = req.query;
+  const {
+    domain,
+    limit,
+    offset,
+    since,
+    ssl_valid: sslValidParam,
+    registrar,
+    created_from: createdFrom,
+    created_to: createdTo,
+    whois_expiration_from: whoisExpirationFrom,
+    whois_expiration_to: whoisExpirationTo,
+  } = req.query;
 
   const numericLimit =
     limit === undefined ? undefined : Number(limit);
-
-  if (numericLimit !== undefined && (!Number.isInteger(numericLimit) || numericLimit <= 0)) {
-    return res.status(400).json({ error: 'limit must be a positive integer' });
+  if (
+    numericLimit !== undefined &&
+    (!Number.isInteger(numericLimit) || numericLimit <= 0)
+  ) {
+    return res
+      .status(400)
+      .json({ error: 'limit must be a positive integer' });
   }
 
   const numericOffset =
     offset === undefined ? 0 : Number(offset);
-
   if (!Number.isInteger(numericOffset) || numericOffset < 0) {
-    return res.status(400).json({ error: 'offset must be a non-negative integer' });
+    return res
+      .status(400)
+      .json({ error: 'offset must be a non-negative integer' });
+  }
+
+  let sslValid;
+  if (sslValidParam !== undefined) {
+    if (
+      sslValidParam !== 'true' &&
+      sslValidParam !== 'false'
+    ) {
+      return res
+        .status(400)
+        .json({ error: 'ssl_valid must be true or false' });
+    }
+    sslValid = sslValidParam === 'true';
+  }
+
+  const isValidDate = (value) =>
+    /^\d{4}-\d{2}-\d{2}$/.test(value);
+
+  for (const [label, value] of [
+    ['created_from', createdFrom],
+    ['created_to', createdTo],
+    ['whois_expiration_from', whoisExpirationFrom],
+    ['whois_expiration_to', whoisExpirationTo],
+  ]) {
+    if (value && !isValidDate(value)) {
+      return res
+        .status(400)
+        .json({ error: `${label} must be YYYY-MM-DD` });
+    }
   }
 
   try {
@@ -28,6 +73,12 @@ export function handleGetResults(req, res) {
       limit: numericLimit === undefined ? undefined : numericLimit,
       offset: numericOffset,
       since: since || undefined,
+      sslValid,
+      registrar: registrar || undefined,
+      createdFrom: createdFrom || undefined,
+      createdTo: createdTo || undefined,
+      whoisExpirationFrom: whoisExpirationFrom || undefined,
+      whoisExpirationTo: whoisExpirationTo || undefined,
     });
     return res.json(rows);
   } catch (err) {
