@@ -15,6 +15,9 @@ A modular OSINT dashboard for scanning domains, gathering intelligence, and visu
   - `/results/export.csv` to export results as CSV
 - Utilities for domain cleaning and normalization
 - Uses SQLite (`osint.db` created automatically on first run)
+- Permanent schema definition in `db/db.js` including `whois_expirationDate` column
+- SQLite indexes on `ssl_valid`, `registrar`, `created_at`, and `whois_expirationDate` for faster filtering
+- Seed script (`db/seed.sql`) for reproducible test data covering all filter cases
 
 ## Installation
 
@@ -24,6 +27,48 @@ Clone the repo and install dependencies:
 git clone https://github.com/hermeticpoet/osint-dashboard.git
 cd osint-dashboard
 npm install
+```
+
+## Database Setup and Testing
+
+### Schema
+
+The SQLite database (./data/osint.db) is auto-created on first server run. The results table includes:
+
+- id (INTEGER PRIMARY KEY)
+- domain (TEXT, required)
+- ip (TEXT, required)
+- ssl_valid (INTEGER, required; 1=true, 0=false)
+- ssl_valid_from (TEXT, required)
+- ssl_valid_to (TEXT, required)
+- ssl_days_remaining (INTEGER, required)
+- registrar (TEXT, optional)
+- whois_expirationDate (TEXT, optional; new column for WHOIS filters)
+- created_at (TEXT, required)
+
+### Indexes
+
+To accelerate filtering, the following indexes are created idempotently (IF NOT EXISTS):
+
+- idx_results_ssl_valid on ssl_valid
+- idx_results_registrar on registrar
+- idx_results_created_at on created_at
+- idx_results_whois_expiration on whois_expirationDate
+
+### Seeding Test Data
+
+A seed script (db/seed.sql) is provided to populate rows covering all filter cases.
+
+Run:
+
+```zsh
+sqlite3 ./data/osint.db < db/seed.sql
+```
+
+Verify:
+
+```zsh
+sqlite3 ./data/osint.db "SELECT id, domain, registrar, whois_expirationDate, created_at, ssl_valid FROM results;"
 ```
 
 ## API Endpoints
@@ -97,7 +142,7 @@ curl "http://localhost:4000/results?limit=50&offset=100"
 
 ## Utilities
 
-### `cleanDomains(list)` – `utils/domainUtils.js`
+`cleanDomains(list)` – `utils/domainUtils.js`
 
 Cleans and deduplicates domain lists:
 
@@ -129,6 +174,8 @@ curl -o expiring-december.csv "http://localhost:4000/results/export.csv?whois_ex
 curl -o page3.csv "http://localhost:4000/results/export.csv?ssl_valid=false&limit=100&offset=200"
 ```
 
+#### Response Headers
+
 Content-Type: text/csv
 Content-Disposition: attachment; filename="results.csv"
 
@@ -143,11 +190,13 @@ curl -X DELETE http://localhost:4000/results/42
 
 #### Error responses
 
+Invalid or malformed ID:
+
 ```json
 { "error": "Invalid result id" }
 ```
 
-##### Pagination support
+### Pagination support
 
 All GET /results and GET /results/export.csv queries support:
 
@@ -160,3 +209,28 @@ curl "http://localhost:4000/results?limit=50&offset=100"
 ```
 
 Invalid limit or offset values return HTTP 400 with a clear error message.
+Full lifecycle supported: insert → query → filter → paginate → export → delete
+
+## License
+
+MIT License
+
+Copyright (c) 2025 Kevin Walton
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights  
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell  
+copies of the Software, and to permit persons to whom the Software is  
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in  
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR  
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,  
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE  
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER  
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,  
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN  
+THE SOFTWARE.
