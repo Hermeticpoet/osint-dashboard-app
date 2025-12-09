@@ -1,34 +1,45 @@
-// Load environment variables from .env file (e.g. PORT, API keys)
-import dotenv from 'dotenv';
-dotenv.config();
-
-// Import Express framework
+// server.js
+import 'dotenv/config';
 import express from 'express';
+import scanRoutes from './routes/scan.js';
+import resultsRoutes from './routes/results.js';
+import authRouter from './routes/auth.js';
+import { authenticateToken, authorizeRole } from './middleware/auth.js';
 
-// Import your route modules
-import scanRoutes from './routes/scan.js'; // handles POST /scan
-import resultsRouter from './routes/results.js'; // handles GET /results
-
-// Create the Express application
 const app = express();
-
-// Middleware to parse incoming JSON request bodies
 app.use(express.json());
 
-// Mount your routes
-// All requests to /scan will be handled by scanRoutes
-app.use('/scan', scanRoutes);
+// Public route: login
+app.use('/', authRouter);
 
-// All requests to /results will be handled by resultsRouter
-app.use('/results', resultsRouter);
+// Protected routes:
+// - admin only: POST /scan, GET /results/export.csv, DELETE /results/:id
+// - read-only + admin: GET /results, GET /results/:id
 
-// Root route (optional) — simple health check or welcome message
+// Protect /scan with admin
+app.use('/scan', authenticateToken, authorizeRole('admin'), scanRoutes);
+
+// Protect /results with mixed access
+app.use(
+  '/results/export.csv',
+  authenticateToken,
+  authorizeRole('admin'),
+  resultsRoutes
+);
+
+app.use(
+  '/results',
+  authenticateToken,
+  authorizeRole(['admin', 'read-only']),
+  resultsRoutes
+);
+
+// Root (optional)
 app.get('/', (req, res) => {
-  res.send('Hello from Express!');
+  res.send('osint-dashboard API');
 });
 
-// Start the server on the port defined in .env or default to 3000
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
 });
