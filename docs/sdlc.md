@@ -1,5 +1,34 @@
 # SDLC Documentation – osint-dashboard
 
+## Table of Contents
+
+- [SDLC Documentation – osint-dashboard](#sdlc-documentation--osint-dashboard)
+- [1. Feature Overview: `/scan` Route](#1-feature-overview-scan-route)
+- [2. Validation Logic](#2-validation-logic)
+- [3. Security Considerations](#3-security-considerations)
+- [4. Testing](#4-testing)
+- [5. Dependencies](#5-dependencies)
+- [6. WHOIS Lookup Module](#6-whois-lookup-module)
+- [7. Refactor and Full Test Coverage of Domain Scan Pipeline](#7-refactor-and-full-test-coverage-of-domain-scan-pipeline)
+- [8. CLI Tool Refactor and Batch Scanning Support](#8-cli-tool-refactor-and-batch-scanning-support)
+- [9. CLI Tool: Concurrency and Verbose Enhancements](#9-cli-tool-concurrency-and-verbose-enhancements)
+- [10. Global CLI Setup (Internal Only)](#10-global-cli-setup-internal-only)
+- [11. CLI Packaging Strategy](#11-cli-packaging-strategy)
+- [12. Results Management Enhancements](#12-results-management-enhancements)
+- [13. Utility Functions](#13-utility-functions)
+- [14. Export Features](#14-export-features)
+- [15. Flattened CSV Export Enhancement](#15-flattened-csv-export-enhancement)
+- [16. Advanced Filtering and Indexing Enhancement](#16-advanced-filtering-and-indexing-enhancement)
+- [17. JWT authentication and roles](#17-jwt-authentication-and-roles)
+  - [17.1 Purpose and scope](#171-purpose-and-scope)
+  - [17.2 Requirements](#172-requirements)
+  - [17.3 Access control overview](#173-access-control-overview)
+  - [17.4 Design decisions](#174-design-decisions)
+  - [17.5 Implementation tasks](#175-implementation-tasks)
+  - [17.6 Validation plan](#176-validation-plan)
+  - [17.7 Documentation updates](#177-documentation-updates)
+  - [17.8 Risk and future work](#178-risk-and-future-work)
+
 ## 1. Feature Overview: `/scan` Route
 
 - Accepts domain input
@@ -193,3 +222,93 @@
   - Combined filters with pagination
   - Negative cases (invalid values return HTTP 400)
 - Confirmed accurate filtering and pagination performance improvements with seeded dataset.
+
+## 17. JWT authentication and roles
+
+### 17.1 Purpose and scope
+
+**Purpose:** Introduce stateless JWT authentication with role-based access control to enforce least privilege.
+
+**Scope:** Protect `/scan`, `/results`, `/results/:id`, `/results/export.csv` and document setup, enforcement rules, and validation.
+
+### 17.2 Requirements
+
+**Functional:**
+
+- Require valid JWT for protected endpoints.
+- Support roles: `admin` (full) and `read-only` (view only).
+- Provide a token issuance endpoint for development (temporary stub).
+
+**Security:**
+
+- Sign tokens with `JWT_SECRET` stored in environment configuration.
+- Enforce token expiration; configurable via environment.
+- Return explicit errors for missing, invalid, or unauthorized tokens.
+
+**Operational:**
+
+- Document usage and validation with reproducible curl commands.
+- Update README and examples; keep seeds/tests compatible.
+
+### 17.3 Access control overview
+
+**Admin:** Access to `/scan`, `/results`, `/results/:id`, `/results/export.csv`.
+**Read-only:** Access to GET `/results`, GET `/results/:id` only.
+**Unauthenticated:** No access to protected endpoints.
+
+### 17.4 Design decisions
+
+**Auth mechanism:** JWT (JSON Web Token), stateless verification.
+**Token contents:** Minimal claims: `username`, `role`; no sensitive data.
+**Secret management:** `JWT_SECRET` in `.env`; never committed.
+**Expiry policy:** Default 1 hour; override via `JWT_EXPIRES_IN`.
+**Error semantics:**
+
+- Missing token → `401 Unauthorized` with `{ error: 'Token required' }`.
+- Invalid/expired token → `403 Forbidden` with `{ error: 'Invalid or expired token' }`.
+- Insufficient role → `403 Forbidden` with `{ error: 'Forbidden: insufficient role' }`.
+
+### 17.5 Implementation tasks
+
+**Dependencies:** Add JWT library to application dependencies.
+**Environment configuration:** Add `JWT_SECRET` and `JWT_EXPIRES_IN` to `.env` and `.env.example`.
+**Middleware:** Create authentication and role-authorization middleware (file: `middleware/auth.js`).
+**Routes:**
+
+- Add token issuance route (development stub) (file: `routes/auth.js` or in `server.js`).
+- Apply middleware to protected routes (file: `server.js` or route modules).
+
+**Indexing/docs impact:** No database changes; update documentation only.
+**Version control:** Commit with clear message and reference this section number.
+
+### 17.6 Validation plan
+
+**Positive cases:**
+
+- Admin token can access all protected endpoints.
+- Read-only token can access GET `/results` and GET `/results/:id`.
+
+**Negative cases:**
+
+- No token → `401`.
+- Invalid/expired token → `403`.
+- Read-only calling admin endpoints → `403`.
+
+**Reproducible tests:**
+
+- Document curl flows to obtain token and call protected endpoints.
+- Include combined filter queries to confirm backward compatibility.
+- Capture responses and note headers/status codes.
+
+### 17.7 Documentation updates
+
+**README:** Add “Authentication” section with: environment setup, role matrix, how to login (dev stub), curl examples for protected calls.
+**SDLC Appendix (optional):** Add links to test logs or curl transcripts if you store them.
+**Changelog:** Note introduction of JWT and role enforcement.
+
+### 17.8 Risk and future work
+
+**Replace stub login:** Integrate real user store and hashed passwords.
+**Secret rotation:** Establish rotation policy for `JWT_SECRET`.
+**Granular scopes:** Consider per-action permissions if needed.
+**Audit:** Log failures and admin actions for traceability.

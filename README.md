@@ -2,6 +2,26 @@
 
 A modular OSINT dashboard for scanning domains, gathering intelligence, and visualizing results. Includes a web dashboard and a powerful CLI tool for automated domain scanning.
 
+## Table of Contents
+
+- [osint-dashboard](#osint-dashboard)
+- [Features](#features)
+- [Installation](#installation)
+- [Database Setup and Testing](#database-setup-and-testing)
+  - [Schema](#schema)
+  - [Indexes](#indexes)
+  - [Seeding Test Data](#seeding-test-data)
+- [Authentication (JWT and roles)](#authentication-jwt-and-roles)
+- [API Endpoints](#api-endpoints)
+  - [POST /scan](#post-scan)
+  - [GET /results](#get-results)
+  - [Advanced Filtering](#advanced-filtering)
+  - [GET /results/export.csv](#get-resultsexportcsv)
+  - [DELETE /results/:id](#delete-resultsid)
+  - [Pagination support](#pagination-support)
+- [Utilities](#utilities)
+- [License](#license)
+
 ## Features
 
 - Domain scanning via CLI
@@ -9,10 +29,10 @@ A modular OSINT dashboard for scanning domains, gathering intelligence, and visu
 - Input/output file support
 - Concurrency control
 - Express-based web API:
-  - `/scan` to insert results
-  - `/results` to query results
-  - `/results/:id` to delete results
-  - `/results/export.csv` to export results as CSV
+  - `/scan` to insert results (admin-only)
+  - `/results` to query results (read-only and admin)
+  - `/results/:id` to get a single result (read-only and admin) and delete a result (admin-only via DELETE)
+  - `/results/export.csv` to export results as CSV (admin-only)
 - Utilities for domain cleaning and normalization
 - Uses SQLite (`osint.db` created automatically on first run)
 - Permanent schema definition in `db/db.js` including `whois_expirationDate` column
@@ -71,6 +91,45 @@ Verify:
 sqlite3 ./data/osint.db "SELECT id, domain, registrar, whois_expirationDate, created_at, ssl_valid FROM results;"
 ```
 
+## Authentication (JWT and roles)
+
+### Overview
+
+**Goal:** Protect API endpoints with stateless JWT authentication and enforce least-privilege roles (`admin`, `read-only`).
+**Protected endpoints:** `POST /scan`, `GET /results`, `GET /results/:id`, `GET /results/export.csv`, `DELETE /results/:id`.
+**Access model:** Include a signed header in all protected requests: `Authorization: Bearer <JWT_TOKEN>`.
+
+### Roles and access
+
+| Endpoint                  | Admin | Read-only |
+| ------------------------- | :---: | :-------: |
+| POST `/scan`              |  ✅   |    ❌     |
+| GET `/results`            |  ✅   |    ✅     |
+| GET `/results/:id`        |  ✅   |    ✅     |
+| GET `/results/export.csv` |  ✅   |    ❌     |
+| DELETE `/results/:id`     |  ✅   |    ❌     |
+
+**Notes:**
+
+- Read-only users can query results (including filters and pagination).
+- Admin-only actions include scanning, exporting, and deleting results.
+
+### Getting a token (development stub)
+
+Obtain a token via the `/login` route during development. The response includes:
+
+```json
+{ "token": "<JWT_TOKEN>" }
+```
+
+Use the token in the `Authorization` header for all protected requests.
+
+### Error responses and status codes
+
+**Missing token:** `401 Unauthorized` with `{"error":"Token required"}`.
+**Invalid or expired token:** `403 Forbidden` with `{"error":"Invalid or expired token"}`.
+**Insufficient role:** `403 Forbidden` with `{"error":"Forbidden: insufficient role"}`.
+
 ## API Endpoints
 
 The Express server runs on `http://localhost:4000` by default.
@@ -78,11 +137,13 @@ The Express server runs on `http://localhost:4000` by default.
 ### POST /scan
 
 Scans a single domain and stores the result in the database.
+Auth: Admin-only. Requires `Authorization: Bearer <JWT_TOKEN>`.
 
 Example:
 
 ```zsh
 curl -X POST http://localhost:4000/scan \
+  -H "Authorization: Bearer <JWT_TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{"domain":"example.com"}'
 ```
@@ -90,6 +151,7 @@ curl -X POST http://localhost:4000/scan \
 ### GET /results
 
 Fetches stored results with optional filters.
+Auth: Read-only and admin. Requires `Authorization: Bearer <JWT_TOKEN>`.
 
 Query parameters:
 
@@ -100,7 +162,8 @@ Query parameters:
 Example:
 
 ```zsh
-curl "http://localhost:4000/results?domain=example.com&limit=2"
+curl "http://localhost:4000/results?domain=example.com&limit=2" \
+  -H "Authorization: Bearer <JWT_TOKEN>"
 ```
 
 ### Advanced Filtering
@@ -122,22 +185,26 @@ curl "http://localhost:4000/results?domain=example.com&limit=2"
 
 ```zsh
 # Expired or invalid SSL certificates (high risk)
-curl "http://localhost:4000/results?ssl_valid=false&limit=200"
+curl "http://localhost:4000/results?ssl_valid=false&limit=200" \
+  -H "Authorization: Bearer <JWT_TOKEN>"
 ```
 
 ```zsh
 # Domain expiring in the next 30 days (takeover target)
-curl "http://localhost:4000/results?whois_expiration_from=2025-12-04&whois_expiration_to=2026-01-04"
+curl "http://localhost:4000/results?whois_expiration_from=2025-12-04&whois_expiration_to=2026-01-04" \
+  -H "Authorization: Bearer <JWT_TOKEN>"
 ```
 
 ```zsh
 # Recently scanned domains from a specific registrar
-curl "http://localhost:4000/results?created_from=2025-11-01&registrar=NameCheap&limit=100"
+curl "http://localhost:4000/results?created_from=2025-11-01&registrar=NameCheap&limit=100" \
+  -H "Authorization: Bearer <JWT_TOKEN>"
 ```
 
 ```zsh
 # Pagination – third page of results
-curl "http://localhost:4000/results?limit=50&offset=100"
+curl "http://localhost:4000/results?limit=50&offset=100" \
+  -H "Authorization: Bearer <JWT_TOKEN>"
 ```
 
 ## Utilities
@@ -156,22 +223,26 @@ Ideal for preprocessing bulk lists before batch scanning.
 ### GET `/results/export.csv`
 
 Exports filtered results as a downloadable CSV file (supports **all the same filters** as `GET /results`).
+Auth: Admin-only. Requires `Authorization: Bearer <JWT_TOKEN>`.
 
 #### Examples
 
 ```zsh
 # Full export
-curl -OJ "http://localhost:4000/results/export.csv"
+curl -OJ "http://localhost:4000/results/export.csv" \
+  -H "Authorization: Bearer <JWT_TOKEN>"
 ```
 
 ```zsh
 # Export only domains expiring this month
-curl -o expiring-december.csv "http://localhost:4000/results/export.csv?whois_expiration_from=2025-12-01&whois_expiration_to=2025-12-31"
+curl -o expiring-december.csv "http://localhost:4000/results/export.csv?whois_expiration_from=2025-12-01&whois_expiration_to=2025-12-31" \
+  -H "Authorization: Bearer <JWT_TOKEN>"
 ```
 
 ```zsh
 # Paginated and filtered export
-curl -o page3.csv "http://localhost:4000/results/export.csv?ssl_valid=false&limit=100&offset=200"
+curl -o page3.csv "http://localhost:4000/results/export.csv?ssl_valid=false&limit=100&offset=200" \
+  -H "Authorization: Bearer <JWT_TOKEN>"
 ```
 
 #### Response Headers
@@ -182,9 +253,11 @@ Content-Disposition: attachment; filename="results.csv"
 ### DELETE `/results/:id`
 
 Permanently removes a specific scan result from the database.
+Auth: Admin-only. Requires `Authorization: Bearer <JWT_TOKEN>`.
 
 ```zsh
-curl -X DELETE http://localhost:4000/results/42
+curl -X DELETE http://localhost:4000/results/42 \
+  -H "Authorization: Bearer <JWT_TOKEN>"
 # → { "deleted": true }
 ```
 
@@ -205,7 +278,8 @@ All GET /results and GET /results/export.csv queries support:
 
 ```zsh
 # Third page of results (50 per page)
-curl "http://localhost:4000/results?limit=50&offset=100"
+curl "http://localhost:4000/results?limit=50&offset=100" \
+  -H "Authorization: Bearer <JWT_TOKEN>"
 ```
 
 Invalid limit or offset values return HTTP 400 with a clear error message.
