@@ -11,7 +11,7 @@ A modular OSINT dashboard for scanning domains, gathering intelligence, and visu
   - [Schema](#schema)
   - [Indexes](#indexes)
   - [Seeding Test Data](#seeding-test-data)
-- [Authentication (JWT and roles)](#authentication-jwt-and-roles)
+- [Authentication and RBAC](#authentication-and-rbac)
 - [API Endpoints](#api-endpoints)
   - [POST /scan](#post-scan)
   - [GET /results](#get-results)
@@ -31,7 +31,7 @@ A modular OSINT dashboard for scanning domains, gathering intelligence, and visu
 - Express-based web API:
   - `/scan` to insert results (admin-only)
   - `/results` to query results (read-only and admin)
-  - `/results/:id` to get a single result (read-only and admin) and delete a result (admin-only via DELETE)
+  - `/results/:id` to delete a result (admin-only via DELETE)
   - `/results/export.csv` to export results as CSV (admin-only)
 - Utilities for domain cleaning and normalization
 - Uses SQLite (`osint.db` created automatically on first run)
@@ -91,40 +91,97 @@ Verify:
 sqlite3 ./data/osint.db "SELECT id, domain, registrar, whois_expirationDate, created_at, ssl_valid FROM results;"
 ```
 
-## Authentication (JWT and roles)
+## Authentication and RBAC
 
-### Overview
+### Purpose
 
-**Goal:** Protect API endpoints with stateless JWT authentication and enforce least-privilege roles (`admin`, `read-only`).
-**Protected endpoints:** `POST /scan`, `GET /results`, `GET /results/:id`, `GET /results/export.csv`, `DELETE /results/:id`.
-**Access model:** Include a signed header in all protected requests: `Authorization: Bearer <JWT_TOKEN>`.
+Introduce stateless JWT authentication with role-based access control (RBAC) to enforce least privilege across protected endpoints.
 
-### Roles and access
+### Environment Setup
+
+**Required Keys:**
+
+- `JWT_SECRET`: Non-empty secret used to sign tokens.
+- `JWT_EXPIRES_IN`: Token lifetime (e.g., 1h).
+
+**Files to update:**
+
+- `.env`: Add actual values.
+- `.env.example`: Include the keys without secrets.
+
+```env
+# .env
+JWT_SECRET=replace-with-a-strong-secret
+JWT_EXPIRES_IN=1h
+```
+
+### Roles Matrix
 
 | Endpoint                  | Admin | Read-only |
 | ------------------------- | :---: | :-------: |
 | POST `/scan`              |  ✅   |    ❌     |
 | GET `/results`            |  ✅   |    ✅     |
-| GET `/results/:id`        |  ✅   |    ✅     |
 | GET `/results/export.csv` |  ✅   |    ❌     |
 | DELETE `/results/:id`     |  ✅   |    ❌     |
 
-**Notes:**
+### Development login (stub)
 
-- Read-only users can query results (including filters and pagination).
-- Admin-only actions include scanning, exporting, and deleting results.
+**Endpoint:** `POST /login`
+**Purpose:** Issues tokens for development with role claim.
+**Sample users:**
 
-### Getting a token (development stub)
+- `admin`: `{"username":"admin","password":"secret"}`
+- `read-only`: `{"username":"user","password":"secret"}`
 
-Obtain a token via the `/login` route during development. The response includes:
+### Curl examples
 
-```json
-{ "token": "<JWT_TOKEN>" }
+```zsh
+# Issue tokens (dev stub)
+ADMIN_TOKEN=$(curl -s -X POST http://localhost:4000/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"secret"}' | jq -r '.token')
+
+USER_TOKEN=$(curl -s -X POST http://localhost:4000/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"user","password":"secret"}' | jq -r '.token')
+
+# GET /results
+curl -i http://localhost:4000/results -H "Authorization: Bearer $ADMIN_TOKEN"
+curl -i http://localhost:4000/results -H "Authorization: Bearer $USER_TOKEN"
+curl -i http://localhost:4000/results
+curl -i http://localhost:4000/results -H "Authorization: Bearer invalidtoken"
+
+# GET /results/export.csv
+curl -i http://localhost:4000/results/export.csv -H "Authorization: Bearer $ADMIN_TOKEN"
+curl -i http://localhost:4000/results/export.csv -H "Authorization: Bearer $USER_TOKEN"
+curl -i http://localhost:4000/results/export.csv
+curl -i http://localhost:4000/results/export.csv -H "Authorization: Bearer invalidtoken"
+
+# DELETE /results/:id
+curl -i -X DELETE http://localhost:4000/results/42 -H "Authorization: Bearer $ADMIN_TOKEN"
+curl -i -X DELETE http://localhost:4000/results/42 -H "Authorization: Bearer $USER_TOKEN"
+curl -i -X DELETE http://localhost:4000/results/42
+curl -i -X DELETE http://localhost:4000/results/42 -H "Authorization: Bearer invalidtoken"
+
+# POST /scan
+curl -i -X POST http://localhost:4000/scan \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"domain":"example.com"}'
+curl -i -X POST http://localhost:4000/scan \
+  -H "Authorization: Bearer $USER_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"domain":"example.com"}'
+curl -i -X POST http://localhost:4000/scan \
+  -H "Content-Type: application/json" \
+  -d '{"domain":"example.com"}'
+curl -i -X POST http://localhost:4000/scan \
+  -H "Authorization: Bearer invalidtoken" \
+  -H "Content-Type: application/json" \
+  -d '{"domain":"example.com"}'
 ```
 
-Use the token in the `Authorization` header for all protected requests.
-
-### Error responses and status codes
+### Error Semantics
 
 **Missing token:** `401 Unauthorized` with `{"error":"Token required"}`.
 **Invalid or expired token:** `403 Forbidden` with `{"error":"Invalid or expired token"}`.
