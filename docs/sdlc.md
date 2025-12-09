@@ -252,8 +252,8 @@
 
 ### 17.3 Access control overview
 
-**Admin:** Access to `/scan`, `/results`, `/results/:id`, `/results/export.csv`.
-**Read-only:** Access to GET `/results`, GET `/results/:id` only.
+**Admin:** Access to `POST /scan`, `GET /results`, `GET /results/export.csv`, `DELETE /results/:id`.
+**Read-only:** Access to GET `/results` only.
 **Unauthenticated:** No access to protected endpoints.
 
 ### 17.4 Design decisions
@@ -283,22 +283,59 @@
 
 ### 17.6 Validation plan
 
-**Positive cases:**
+**Expected outcomes (matrix):**
 
-- Admin token can access all protected endpoints.
-- Read-only token can access GET `/results` and GET `/results/:id`.
+**GET /results:** admin → 200, read-only → 200, no token → 401, invalid → 403
+**GET /results/export.csv:** admin → 200, read-only → 403, no token → 401, invalid → 403
+**DELETE /results/:id:** admin → 200/404, read-only → 403, no token → 401, invalid → 403
+**POST /scan:** admin → 200, read-only → 403, no token → 401, invalid → 403
 
-**Negative cases:**
+**Curl Commands:**
 
-- No token → `401`.
-- Invalid/expired token → `403`.
-- Read-only calling admin endpoints → `403`.
+```zsh
+# Issue tokens (dev stub)
+ADMIN_TOKEN=$(curl -s -X POST http://localhost:4000/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"secret"}' | jq -r '.token')
+USER_TOKEN=$(curl -s -X POST http://localhost:4000/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"user","password":"secret"}' | jq -r '.token')
 
-**Reproducible tests:**
+# GET /results
+curl -i http://localhost:4000/results -H "Authorization: Bearer $ADMIN_TOKEN"
+curl -i http://localhost:4000/results -H "Authorization: Bearer $USER_TOKEN"
+curl -i http://localhost:4000/results
+curl -i http://localhost:4000/results -H "Authorization: Bearer invalidtoken"
 
-- Document curl flows to obtain token and call protected endpoints.
-- Include combined filter queries to confirm backward compatibility.
-- Capture responses and note headers/status codes.
+# GET /results/export.csv
+curl -i http://localhost:4000/results/export.csv -H "Authorization: Bearer $ADMIN_TOKEN"
+curl -i http://localhost:4000/results/export.csv -H "Authorization: Bearer $USER_TOKEN"
+curl -i http://localhost:4000/results/export.csv
+curl -i http://localhost:4000/results/export.csv -H "Authorization: Bearer invalidtoken"
+
+# DELETE /results/:id
+curl -i -X DELETE http://localhost:4000/results/42 -H "Authorization: Bearer $ADMIN_TOKEN"
+curl -i -X DELETE http://localhost:4000/results/42 -H "Authorization: Bearer $USER_TOKEN"
+curl -i -X DELETE http://localhost:4000/results/42
+curl -i -X DELETE http://localhost:4000/results/42 -H "Authorization: Bearer invalidtoken"
+
+# POST /scan
+curl -i -X POST http://localhost:4000/scan \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"domain":"example.com"}'
+curl -i -X POST http://localhost:4000/scan \
+  -H "Authorization: Bearer $USER_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"domain":"example.com"}'
+curl -i -X POST http://localhost:4000/scan \
+  -H "Content-Type: application/json" \
+  -d '{"domain":"example.com"}'
+curl -i -X POST http://localhost:4000/scan \
+  -H "Authorization: Bearer invalidtoken" \
+  -H "Content-Type: application/json" \
+  -d '{"domain":"example.com"}'
+```
 
 ### 17.7 Documentation updates
 

@@ -5,29 +5,26 @@ import {
   handleDeleteResult,
 } from '../controllers/resultsController.js';
 import { handleExportResults } from '../controllers/exportResultsController.js';
+import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 
 const router = express.Router();
 
 /**
  * GET /results
- * Query params:
- *  - domain: filter by exact domain (optional)
- *  - limit: max number of rows to return (optional, default 50)
- *  - offset: number of rows to skip before returning data (optional, default 0)
- *  - since: ISO timestamp; only return rows after this time (optional)
+ * Accessible to both admin and read-only roles.
  */
-router.get('/', handleGetResults);
+router.get('/', authenticateToken, authorizeRole(['admin', 'read-only']), handleGetResults);
 
 /**
  * GET /results/export.csv
- * Same filters/pagination as /results but returns CSV attachment.
+ * Admin-only.
  */
-router.get('/export.csv', handleExportResults);
+router.get('/export.csv', authenticateToken, authorizeRole('admin'), handleExportResults);
 
 /**
  * DELETE /results/:id
- * Removes a stored result row by ID.
+ * Admin-only.
  */
-router.delete('/:id', handleDeleteResult);
+router.delete('/:id', authenticateToken, authorizeRole('admin'), handleDeleteResult);
 
 export default router;

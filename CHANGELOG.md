@@ -12,6 +12,22 @@ All notable changes to this project will be documented in this file.
 
 ## [v1.0.0] - 2025-11-04
 
+### Added
+- Introduced JWT authentication with role-based access control (RBAC).
+  - Roles supported: `admin` (full access) and `read-only` (view-only).
+  - Middleware: `authenticateToken` and `authorizeRole` (string or array).
+  - Protected endpoints: `/scan`, `/results`, `/results/export.csv`, `/results/:id` (DELETE).
+- Documented validation matrix and curl test flows in SDLC Section 17.
+
+### Changed
+- Updated `.env` configuration:
+  - Set `JWT_EXPIRES_IN=1h` (previously `5s` for testing).
+- Updated `server.js` mounting to avoid duplicate middleware application.
+
+### Security
+- Enforced least privilege via RBAC.
+- Clear error semantics for missing, invalid/expired, and insufficient role tokens.
+
 ### 🚀 Initial Release
 
 - Modular OSINT CLI tool for domain scanning

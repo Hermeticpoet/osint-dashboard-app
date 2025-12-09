@@ -14,25 +14,13 @@ app.use('/', authRouter);
 
 // Protected routes:
 // - admin only: POST /scan, GET /results/export.csv, DELETE /results/:id
-// - read-only + admin: GET /results, GET /results/:id
+// - read-only + admin: GET /results
 
 // Protect /scan with admin
 app.use('/scan', authenticateToken, authorizeRole('admin'), scanRoutes);
 
 // Protect /results with mixed access
-app.use(
-  '/results/export.csv',
-  authenticateToken,
-  authorizeRole('admin'),
-  resultsRoutes
-);
-
-app.use(
-  '/results',
-  authenticateToken,
-  authorizeRole(['admin', 'read-only']),
-  resultsRoutes
-);
+app.use('/results', resultsRoutes);
 
 // Root (optional)
 app.get('/', (req, res) => {
