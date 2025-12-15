@@ -1,4 +1,4 @@
-const { getWhoisData } = require('../services/whoisService');
+import { getWhoisData } from '../services/whoisService.js';
 
 describe('getWhoisData', () => {
   test('returns WHOIS info for a valid .com domain', async () => {

@@ -1,13 +1,8 @@
-const {
-  normalizeDomain,
-  isValidDomain,
-} = require('../controllers/scanController');
+import { normalizeDomain, isValidDomain } from '../controllers/scanController.js';
 
 describe('normalizeDomain', () => {
   test('removes protocol and path', () => {
-    expect(normalizeDomain('https://www.example.com/path')).toBe(
-      'www.example.com'
-    );
+    expect(normalizeDomain('https://www.example.com/path')).toBe('www.example.com');
   });
 
   test('removes credentials and port', () => {

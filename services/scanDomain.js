@@ -1,5 +1,5 @@
 import sslChecker from 'ssl-checker';
-import dns from 'dns/promises';
+import * as dns from 'node:dns/promises';
 import { getWhoisData } from './whoisService.js';
 import {
   normalizeDomain,

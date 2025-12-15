@@ -1,23 +1,28 @@
-const { scanDomain } = require('../services/scanDomain');
-const dns = require('dns').promises;
-const sslChecker = require('ssl-checker');
-const whoisService = require('../services/whoisService');
+// __tests__/scanDomain.test.js
+import { jest } from '@jest/globals';
 
-jest.mock('dns', () => ({
-  promises: {
-    lookup: jest.fn(),
-  },
+// Define mocks before importing
+jest.unstable_mockModule('node:dns/promises', () => ({
+  lookup: jest.fn(),
 }));
 
-jest.mock('ssl-checker', () => jest.fn());
+jest.unstable_mockModule('ssl-checker', () => ({
+  default: jest.fn(),
+}));
 
-jest.mock('../services/whoisService', () => ({
+jest.unstable_mockModule('../services/whoisService.js', () => ({
   getWhoisData: jest.fn(),
 }));
 
+// Import the modules *after* mocks are set up
+const { scanDomain } = await import('../services/scanDomain.js');
+const dns = await import('node:dns/promises');
+const { default: sslChecker } = await import('ssl-checker');
+const whoisService = await import('../services/whoisService.js');
+
 describe('scanDomain', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
   });
 
   test('returns full scan result for valid domain', async () => {
