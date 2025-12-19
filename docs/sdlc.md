@@ -1,3 +1,5 @@
+
+docs/sdlc.md
 # SDLC Documentation – osint-dashboard
 
 ## Table of Contents
@@ -28,6 +30,16 @@
   - [17.6 Validation plan](#176-validation-plan)
   - [17.7 Documentation updates](#177-documentation-updates)
   - [17.8 Risk and future work](#178-risk-and-future-work)
+- [18. Middleware Update](#18-middleware-update)
+  - [18.1 Rationale](#181-rationale)
+  - [18.2 Implementation details](#182-implementation-details)
+  - [18.3 Testing](#183-testing)
+- [19. Testing Harness Notes](#19-testing-harness-notes)
+  - [19.1 Runtime and Jest configuration](#191-runtime-and-jest-configuration)
+  - [19.2 Integration test strategy](#192-integration-test-strategy)
+- [20. Coverage Summary](#20-coverage-summary)
+  - [20.1 Current coverage snapshot](#201-current-coverage-snapshot)
+  - [20.2 Gaps and next steps](#202-gaps-and-next-steps)
 
 ## 1. Feature Overview: `/scan` Route
 
@@ -152,7 +164,6 @@
   - Returns `{ "deleted": true }` on success
   - Returns `{ "error": "Result not found" }` if row does not exist
   - Returns `{ "error": "Invalid result id" }` for malformed IDs
-  - Pagination verified with >100 rows and sequential offsets
 - Confirms full lifecycle coverage: insert → query → paginate → delete.
 
 ## 13. Utility Functions
@@ -166,7 +177,7 @@
 
 ## 14. Export Features
 
-- Added controllers/exportResultsController.js using `json2csv` to convert DB rows into CSV.
+- Added `controllers/exportResultsController.js` using `json2csv` to convert DB rows into CSV.
 - Route `GET /results/export.csv` reuses the same validation/pagination as `GET /results`.
 - Prepends a timestamp header (# Exported at `ISO timestamp`) for traceability.
 - Returns downloadable CSV with schema‑order fields (id, domain, ip, ssl_valid, ssl_valid_from, ssl_valid_to, ssl_days_remaining, registrar, created_at).
@@ -182,7 +193,6 @@
 - **Endpoint:** `GET /results/export.csv`
 - **Purpose:** Refactor CSV export to flatten nested JSON stored in the `result` column into explicit CSV fields.
 - **Design Decisions:**
-
   - Adopted `json2csv` `Parser` for robust CSV generation with schema enforcement and proper escaping.
   - Parse `result` JSON string safely (`try/catch`) to avoid crashes on malformed data.
   - Prefer direct DB columns when present; fall back to parsed JSON values for SSL and WHOIS.
@@ -193,7 +203,6 @@
     - `registrar`, `whois_creationDate`, `whois_expirationDate`
   - Header comments include timestamp, row count, applied limit, and offset.
   - Hard safety limit of 50,000 rows enforced; validation for `limit` and `offset`.
-
 - **Error Handling:**
   - Malformed JSON → log warning, leave flattened fields empty/null.
   - Export failures → return `500` with `{ "error": "Failed to generate CSV export" }`.
@@ -252,47 +261,46 @@
 
 ### 17.3 Access control overview
 
-**Admin:** Access to `POST /scan`, `GET /results`, `GET /results/export.csv`, `DELETE /results/:id`.
-**Read-only:** Access to GET `/results` only.
+**Admin:** Access to `POST /scan`, `GET /results`, `GET /results/export.csv`, `DELETE /results/:id`.  
+**Read-only:** Access to `GET /results` only.  
 **Unauthenticated:** No access to protected endpoints.
 
 ### 17.4 Design decisions
 
-**Auth mechanism:** JWT (JSON Web Token), stateless verification.
-**Token contents:** Minimal claims: `username`, `role`; no sensitive data.
-**Secret management:** `JWT_SECRET` in `.env`; never committed.
-**Expiry policy:** Default 1 hour; override via `JWT_EXPIRES_IN`.
+**Auth mechanism:** JWT (JSON Web Token), stateless verification.  
+**Token contents:** Minimal claims: `username`, `role`; no sensitive data.  
+**Secret management:** `JWT_SECRET` in `.env`; never committed.  
+**Expiry policy:** Default 1 hour; override via `JWT_EXPIRES_IN`.  
 **Error semantics:**
 
 - Missing token → `401 Unauthorized` with `{ error: 'Token required' }`.
 - Invalid/expired token → `403 Forbidden` with `{ error: 'Invalid or expired token' }`.
-- Insufficient role → `403 Forbidden` with `{ error: 'Forbidden: insufficient role' }`.
+- Insufficient role → `403 Forbidden` with `{ error: 'Forbidden' }`.
 
 ### 17.5 Implementation tasks
 
-**Dependencies:** Add JWT library to application dependencies.
-**Environment configuration:** Add `JWT_SECRET` and `JWT_EXPIRES_IN` to `.env` and `.env.example`.
-**Middleware:** Create authentication and role-authorization middleware (file: `middleware/auth.js`).
+**Dependencies:** Add JWT library to application dependencies.  
+**Environment configuration:** Add `JWT_SECRET` and `JWT_EXPIRES_IN` to `.env` and `.env.example`.  
+**Middleware:** Create authentication and role-authorization middleware (file: `middleware/auth.js`).  
 **Routes:**
 
 - Add token issuance route (development stub) (file: `routes/auth.js` or in `server.js`).
 - Apply middleware to protected routes (file: `server.js` or route modules).
 
-**Indexing/docs impact:** No database changes; update documentation only.
+**Indexing/docs impact:** No database changes; update documentation only.  
 **Version control:** Commit with clear message and reference this section number.
 
 ### 17.6 Validation plan
 
 **Expected outcomes (matrix):**
 
-**GET /results:** admin → 200, read-only → 200, no token → 401, invalid → 403
-**GET /results/export.csv:** admin → 200, read-only → 403, no token → 401, invalid → 403
-**DELETE /results/:id:** admin → 200/404, read-only → 403, no token → 401, invalid → 403
-**POST /scan:** admin → 200, read-only → 403, no token → 401, invalid → 403
+- **GET /results:** admin → 200, read-only → 200, no token → 401, invalid → 403
+- **GET /results/export.csv:** admin → 200, read-only → 403, no token → 401, invalid → 403
+- **DELETE /results/:id:** admin → 200/404, read-only → 403, no token → 401, invalid → 403
+- **POST /scan:** admin → 200, read-only → 403, no token → 401, invalid → 403
 
 **Curl Commands:**
 
-```zsh
 # Issue tokens (dev stub)
 ADMIN_TOKEN=$(curl -s -X POST http://localhost:4000/login \
   -H "Content-Type: application/json" \
@@ -339,13 +347,148 @@ curl -i -X POST http://localhost:4000/scan \
 
 ### 17.7 Documentation updates
 
-**README:** Add “Authentication” section with: environment setup, role matrix, how to login (dev stub), curl examples for protected calls.
-**SDLC Appendix (optional):** Add links to test logs or curl transcripts if you store them.
+**README:** Add “Authentication” section with: environment setup, role matrix, how to login (dev stub), curl examples for protected calls.  
+**SDLC Appendix (optional):** Add links to test logs or curl transcripts if you store them.  
 **Changelog:** Note introduction of JWT and role enforcement.
 
 ### 17.8 Risk and future work
 
-**Replace stub login:** Integrate real user store and hashed passwords.
-**Secret rotation:** Establish rotation policy for `JWT_SECRET`.
-**Granular scopes:** Consider per-action permissions if needed.
+**Replace stub login:** Integrate real user store and hashed passwords.  
+**Secret rotation:** Establish rotation policy for `JWT_SECRET`.  
+**Granular scopes:** Consider per-action permissions if needed.  
 **Audit:** Log failures and admin actions for traceability.
+
+## 18. Middleware Update
+
+### 18.1 Rationale
+
+The `authorizeRole` middleware was added to enforce **role-based access control (RBAC)** on top of JWT authentication:
+
+- `authenticateToken` verifies the JWT and attaches `req.user` with a `role` claim.
+- `authorizeRole(allowed)` ensures only callers with the appropriate role(s) can access specific routes.
+- This enforces the access matrix for `/scan`, `/results`, `/results/export.csv`, and `DELETE /results/:id` without duplicating role checks in each controller.
+
+The motivation was to:
+
+- Centralize authorization logic.
+- Make role behavior explicit and testable.
+- Support future roles or more granular permissions with minimal changes.
+
+### 18.2 Implementation details
+
+- **File:** `middleware/auth.js`
+- **Exports:**
+  - `authenticateToken(req, res, next)`
+  - `authorizeRole(allowed)`
+- **Behavior of `authorizeRole(allowed)`**:
+  - `allowed` can be a single string (e.g., `"admin"`) or an array of strings (e.g., `["admin", "read-only"]`).
+  - If `req.user` is missing, the middleware returns `401` with `{ error: "Unauthorized" }`.
+  - If `allowed` is empty or invalid, the middleware denies by default with `403` and `{ error: "Forbidden" }`.
+  - If `req.user.role` is included in `allowed`, it calls `next()`.
+  - Otherwise, it returns `403` with `{ error: "Forbidden" }`.
+  - Role comparison is intentionally **case-sensitive** at this stage.
+
+Routes use this middleware in two ways:
+
+- Globally wrapping routers (e.g., `app.use('/scan', authenticateToken, authorizeRole('admin'), scanRoutes)`).
+- Per-route within routers (e.g., `router.get('/', authenticateToken, authorizeRole(['admin','read-only']), handleGetResults)`).
+
+### 18.3 Testing
+
+`authorizeRole` is tested at two levels:
+
+- **Unit tests** (`__tests__/unit/authorizeRole.test.js`):
+  - Use plain mock `req`, `res`, and `next` objects.
+  - Cover:
+    - Missing `req.user` → `401 { error: "Unauthorized" }`
+    - Single role allowed (match/mismatch) → `next()` vs `403`
+    - Multiple roles allowed (match/mismatch) → `next()` vs `403`
+    - Empty or invalid `allowed` → default deny (`403`)
+    - Case-sensitive mismatches → `403`
+  - Assert that `next` is only called when authorization is granted and that `res.status`/`res.json` are called exactly once on deny paths.
+
+- **Integration tests** (`__tests__/unit/protectedRoutes.test.js`):
+  - Import the real Express `app` from `server.js`.
+  - Exercise real routes:
+    - `POST /scan` (admin-only).
+    - `GET /results` (admin + read-only).
+  - Verify behavior for:
+    - Missing token → `401 { error: "Token required" }` (from `authenticateToken`).
+    - Invalid token → `403 { error: "Invalid or expired token" }`.
+    - Valid token with wrong role → `403 { error: "Forbidden" }` (from `authorizeRole`).
+    - Valid token with correct role → `200` with a JSON body.
+
+This combination gives high confidence that the middleware behaves correctly in isolation and as wired into the real routes.
+
+## 19. Testing Harness Notes
+
+### 19.1 Runtime and Jest configuration
+
+- **Runtime:** Node.js with `"type": "module"` in `package.json` (full ESM).
+- **Test runner:** Jest v30 with `node --experimental-vm-modules` to support ESM imports.
+- **Globals:** Tests use `@jest/globals` for `describe`, `test`, `expect`, `jest`, etc., to avoid relying on CommonJS-global Jest APIs.
+- **HTTP testing:** `supertest` is used for integration-style tests against the in-memory Express app.
+- **Server wiring:**
+  - `server.js` now exports a named `app` instance: `export { app };`.
+  - `app.listen(...)` is guarded so it only runs when not in `NODE_ENV="test"`, allowing tests to import `app` without opening a listening socket.
+- **ESM mocking:**
+  - Network-dependent modules like `services/scanDomain.js` are mocked with `jest.unstable_mockModule` in integration tests to keep runs offline and deterministic.
+
+### 19.2 Integration test strategy
+
+The integration suite in `__tests__/unit/protectedRoutes.test.js` focuses on **chained middleware + controllers** for protected routes:
+
+- **Token generation:**
+  - Uses `jsonwebtoken` to sign JWTs for `admin` and `read-only` roles.
+  - Reads `JWT_SECRET` from `process.env`, with a fallback to `"test-secret"` if not set.
+  - Generates intentionally invalid tokens by signing with a different secret (e.g., `"wrong-secret"`).
+- **Scenarios covered:**
+  - `POST /scan` (admin-only):
+    - Missing token → `401` with `{ error: "Token required" }`.
+    - Invalid token (bad signature) → `403` with `{ error: "Invalid or expired token" }`.
+    - Valid token, `role: "read-only"` → `403` with `{ error: "Forbidden" }`.
+    - Valid token, `role: "admin"` → `200` with a JSON object including a `domain` field.
+  - `GET /results` (admin + read-only):
+    - Missing token → `401` with `{ error: "Token required" }`.
+    - Valid token, `role: "read-only"` → `200` with an array response.
+    - Valid token, `role: "admin"` → `200` with an array response.
+- **Isolation from external systems:**
+  - `scanDomain` is mocked to avoid DNS/WHOIS/SSL network calls, returning a simple in-memory result.
+  - Tests assert on status codes, error payloads, and minimal success shapes (e.g., object vs array, presence of known keys) instead of DB contents.
+
+This harness ensures we verify the **end-to-end behavior of `authenticateToken` + `authorizeRole` + controllers** without introducing flaky external dependencies.
+
+## 20. Coverage Summary
+
+### 20.1 Current coverage snapshot
+
+As of the latest iteration:
+
+- **Middleware:**
+  - `authenticateToken` and `authorizeRole` have **~95%+ coverage**, including happy paths and all major error branches.
+  - Integration tests in `__tests__/unit/protectedRoutes.test.js` add an additional layer of coverage for real route wiring.
+- **Controllers:**
+  - `scanController.js` and `resultsController.js` are covered by unit tests for domain normalization, validation, query handling, and pagination.
+  - Error and edge cases (invalid params, missing data) are well-represented.
+- **Services:**
+  - `whoisService.js` and `scanDomain.js` have strong unit coverage for supported TLDs, error handling, and normalization logic.
+- **Utilities:**
+  - `domainUtils.js` is covered by tests verifying cleaning, deduplication, and FQDN validation.
+
+### 20.2 Gaps and next steps
+
+Remaining coverage gaps and planned improvements:
+
+- **Controllers:**
+  - `exportResultsController.js` and some branches in `resultsController.js` are not yet fully exercised (e.g., complex filter combinations, CSV error paths).
+  - Next step: add targeted tests to simulate malformed `result` JSON, extreme pagination values, and CSV generation failures.
+- **Services:**
+  - `whoisService.js` has limited tests around network failures and partial RDAP responses.
+  - Next step: extend mocks to cover timeouts, malformed RDAP, and unsupported TLDs for more robust resilience testing.
+- **Utilities:**
+  - `domainUtils.js` can benefit from additional edge-case coverage (IDNs, punycode, very long domains).
+- **Integration:**
+  - Currently, integration tests focus on `/scan` and `/results`.
+  - Next step: add end-to-end tests for `/results/export.csv` and `DELETE /results/:id` to validate role enforcement and error semantics across all protected routes.
+
+The goal is to move from “high coverage on core paths” to **systematic coverage of all controllers and services**, ensuring that authorization, error handling, and data shape guarantees remain stable as the system evolves.

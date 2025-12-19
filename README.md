@@ -1,3 +1,5 @@
+README.md
+
 # osint-dashboard
 
 A modular OSINT dashboard for scanning domains, gathering intelligence, and visualizing results. Includes a web dashboard and a powerful CLI tool for automated domain scanning.
@@ -7,6 +9,7 @@ A modular OSINT dashboard for scanning domains, gathering intelligence, and visu
 - [osint-dashboard](#osint-dashboard)
 - [Features](#features)
 - [Installation](#installation)
+- [Testing](#testing)
 - [Database Setup and Testing](#database-setup-and-testing)
   - [Schema](#schema)
   - [Indexes](#indexes)
@@ -16,7 +19,7 @@ A modular OSINT dashboard for scanning domains, gathering intelligence, and visu
   - [POST /scan](#post-scan)
   - [GET /results](#get-results)
   - [Advanced Filtering](#advanced-filtering)
-  - [GET /results/export.csv](#get-resultsexportcsv)
+  - [GET /results/exportcsv](#get-resultsexportcsv)
   - [DELETE /results/:id](#delete-resultsid)
   - [Pagination support](#pagination-support)
 - [Utilities](#utilities)
@@ -48,6 +51,48 @@ git clone https://github.com/hermeticpoet/osint-dashboard.git
 cd osint-dashboard
 npm install
 ```
+
+## Testing
+
+This project uses Node.js ESM ("type": "module" in package.json) and Jest v30 with node --experimental-vm-modules.
+Run the full test suite (zsh):
+
+npm test
+Run only the protected routes integration tests:
+
+```zsh
+npm test -- __tests__/unit/protectedRoutes.test.js
+```
+
+Jest is already configured to run the ESM tests; if you invoke Node or Jest directly, ensure you include the --experimental-vm-modules flag so ESM modules load correctly.
+JWT secrets for tests
+The application and tests use a shared JWT secret:
+At runtime, set JWT_SECRET in your environment (e.g., via .env).
+For tests, if JWT_SECRET is not set, the test harness falls back to test-secret so that tokens generated in tests still verify correctly.
+Example (zsh):
+
+```zsh
+export JWT_SECRET="replace-with-a-strong-secret"
+npm test
+```
+
+Generating tokens via /login
+A stub login endpoint issues JWTs with role claims:
+POST /login with {"username":"admin","password":"secret"} → admin token
+POST /login with {"username":"user","password":"secret"} → read-only token
+Example (zsh):
+
+```zsh
+ADMIN_TOKEN=$(curl -s -X POST http://localhost:4000/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"secret"}' | jq -r '.token')
+
+USER_TOKEN=$(curl -s -X POST http://localhost:4000/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"user","password":"secret"}' | jq -r '.token')
+```
+
+You can then use these tokens with Authorization: Bearer <TOKEN> for the protected routes described below.
 
 ## Database Setup and Testing
 
