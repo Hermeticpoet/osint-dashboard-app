@@ -309,6 +309,28 @@ curl "http://localhost:4000/results?limit=50&offset=100" \
   -H "Authorization: Bearer <JWT_TOKEN>"
 ```
 
+### Get /results/export.csv
+
+Exports results in CSV format. Auth: Admin-only. Requires Authorization: Bearer <JWT_TOKEN>. Responds with a CSV file including headers and rows describing domain results.
+
+Example:
+
+```zsh
+curl http://localhost:4000/results/export.csv \
+  -H "Authorization: Bearer <JWT_TOKEN>"
+```
+
+### DELETE /results/:id
+
+Deletes a stored result by ID. Auth: Admin-only. Requires `Authorization: Bearer <JWT_TOKEN>`. Returns `200 OK` if the record exists and is deleted, `404 Not Found` if the record does not exist.
+
+Example:
+
+```zsh
+curl -X DELETE http://localhost:4000/results/42 \
+  -H "Authorization: Bearer <JWT_TOKEN>"
+```
+
 ## Utilities
 
 `cleanDomains(list)` – `utils/domainUtils.js`

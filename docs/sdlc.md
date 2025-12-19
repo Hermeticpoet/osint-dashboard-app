@@ -1,5 +1,5 @@
-
 docs/sdlc.md
+
 # SDLC Documentation – osint-dashboard
 
 ## Table of Contents
@@ -301,6 +301,7 @@ docs/sdlc.md
 
 **Curl Commands:**
 
+```zsh
 # Issue tokens (dev stub)
 ADMIN_TOKEN=$(curl -s -X POST http://localhost:4000/login \
   -H "Content-Type: application/json" \
@@ -398,6 +399,7 @@ Routes use this middleware in two ways:
 `authorizeRole` is tested at two levels:
 
 - **Unit tests** (`__tests__/unit/authorizeRole.test.js`):
+
   - Use plain mock `req`, `res`, and `next` objects.
   - Cover:
     - Missing `req.user` → `401 { error: "Unauthorized" }`
@@ -452,6 +454,16 @@ The integration suite in `__tests__/unit/protectedRoutes.test.js` focuses on **c
     - Missing token → `401` with `{ error: "Token required" }`.
     - Valid token, `role: "read-only"` → `200` with an array response.
     - Valid token, `role: "admin"` → `200` with an array response.
+  - `GET /results/export.csv` (admin-only):
+    - Missing token → `401` with `{ error: "Token required" }`.
+    - Valid token, `role: "read-only"` → `403` with `{ error: "Forbidden" }`.
+    - Valid token, `role: "admin"` → `200` with `Content-Type: text/csv` and a body containing headers and rows.
+    - Invalid token → `403` with `{ error: "Invalid or expired token" }`.
+  - `DELETE /results/:id` (admin-only):
+    - Missing token → `401` with `{ error: "Token required" }`.
+    - Valid token, `role: "read-only"` → `403` with `{ error: "Forbidden" }`.
+    - Valid token, `role: "admin"` → `200` if the record exists and is deleted, `404` with `{ error: "Result not found" }` if the record does not exist.
+    - Invalid token → `403` with `{ error: "Invalid or expired token" }`.
 - **Isolation from external systems:**
   - `scanDomain` is mocked to avoid DNS/WHOIS/SSL network calls, returning a simple in-memory result.
   - Tests assert on status codes, error payloads, and minimal success shapes (e.g., object vs array, presence of known keys) instead of DB contents.

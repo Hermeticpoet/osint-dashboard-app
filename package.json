@@ -8,7 +8,9 @@
   },
   "scripts": {
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev:start": "zsh scripts/start-dev.sh",
+    "validate:docs": "zsh scripts/validate-docs.sh"
   },
   "keywords": [
     "osint",
