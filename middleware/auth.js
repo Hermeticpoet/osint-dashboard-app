@@ -36,16 +36,28 @@ export function authenticateToken(req, res, next) {
  * Authorize a user based on required role(s).
  * Accepts a single role string or an array of allowed roles.
  */
-export function authorizeRole(requiredRoles) {
-  const allowed = Array.isArray(requiredRoles) ? requiredRoles : [requiredRoles];
+export function authorizeRole(allowed) {
+  const allowedRoles = Array.isArray(allowed)
+    ? allowed
+    : typeof allowed === 'string'
+      ? [allowed]
+      : null;
+
   return (req, res, next) => {
-    if (!req.user || !req.user.role) {
-      // If authenticateToken wasn't applied, treat as unauthorized
-      return res.status(401).json({ error: 'Token required' });
+    if (!req || !req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
-    if (!allowed.includes(req.user.role)) {
-      return res.status(403).json({ error: 'Forbidden: insufficient role' });
+
+    if (!Array.isArray(allowedRoles) || allowedRoles.length === 0) {
+      return res.status(403).json({ error: 'Forbidden' });
     }
-    next();
+
+    const { role } = req.user;
+
+    if (allowedRoles.includes(role)) {
+      return next();
+    }
+
+    return res.status(403).json({ error: 'Forbidden' });
   };
 }
