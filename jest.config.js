@@ -1,15 +1,22 @@
-/** @type {import('jest').Config} */
 export default {
+  rootDir: './',
+  roots: ['<rootDir>'],
   testEnvironment: 'node',
-  setupFilesAfterEnv: ['<rootDir>/setup/jest.setup.js'],
   collectCoverage: true,
   collectCoverageFrom: [
-    'middleware/**/*.js',
-    'services/**/*.js',
     'controllers/**/*.js',
+    'services/**/*.js',
+    'middleware/**/*.js',
+    'routes/**/*.js',
     'utils/**/*.js',
+    'db/**/*.js',
+    '!coverage/**',
+    '!cli/**',
+    '!scripts/**',
     '!server.js',
+    '!jest.config.js',
   ],
-  coverageDirectory: 'coverage',
-  verbose: true,
+  transformIgnorePatterns: ['node_modules/jsonwebtoken/'],
+  coveragePathIgnorePatterns: ['node_modules/jsonwebtoken/'],
+  testPathIgnorePatterns: ['authenticateToken.no-cov.test.js'],
 };

@@ -17,6 +17,7 @@ export function authenticateToken(req, res, next) {
 
   try {
     const secret = process.env.JWT_SECRET;
+
     if (!secret) {
       return res
         .status(500)
@@ -40,8 +41,8 @@ export function authorizeRole(allowed) {
   const allowedRoles = Array.isArray(allowed)
     ? allowed
     : typeof allowed === 'string'
-      ? [allowed]
-      : null;
+    ? [allowed]
+    : null;
 
   return (req, res, next) => {
     if (!req || !req.user) {

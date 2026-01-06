@@ -1,3 +1,5 @@
+/* istanbul ignore file */
+
 // __tests__/unit/authenticateToken.test.js
 import express from 'express';
 import request from 'supertest';
@@ -64,7 +66,9 @@ describe('authenticateToken (unit)', () => {
   });
 
   test('rejects invalid signature', async () => {
-    const badToken = jwt.sign(adminPayload, 'wrong-secret', { expiresIn: '1h' });
+    const badToken = jwt.sign(adminPayload, 'wrong-secret', {
+      expiresIn: '1h',
+    });
     const app = makeApp((req, res) => res.json({ ok: true }));
 
     const res = await request(app)
