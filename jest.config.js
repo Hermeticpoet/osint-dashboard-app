@@ -19,4 +19,9 @@ export default {
   transformIgnorePatterns: ['node_modules/jsonwebtoken/'],
   coveragePathIgnorePatterns: ['node_modules/jsonwebtoken/'],
   testPathIgnorePatterns: ['authenticateToken.no-cov.test.js'],
+  moduleNameMapper: {
+    '^whois-json$': '<rootDir>/__mocks__/whois-json.js',
+    '^ssl-checker$': '<rootDir>/__mocks__/ssl-checker.js',
+    '^whois$': '<rootDir>/__mocks__/whois.js',
+  },
 };

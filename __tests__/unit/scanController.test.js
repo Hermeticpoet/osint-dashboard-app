@@ -1,13 +1,17 @@
-import { describe, test, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 
-vi.mock('../../services/scanService.js', () => ({
-  scanDomain: vi.fn()
+// ESM‑compatible mocks
+await jest.unstable_mockModule('../../services/scanService.js', () => ({
+  __esModule: true,
+  scanDomain: jest.fn(),
 }));
 
-vi.mock('../../db/db.js', () => ({
-  insertResult: vi.fn()
+await jest.unstable_mockModule('../../db/db.js', () => ({
+  __esModule: true,
+  insertResult: jest.fn(),
 }));
 
+// Import AFTER mocks are registered
 const { scanDomain } = await import('../../services/scanService.js');
 const { insertResult } = await import('../../db/db.js');
 const { handleScan } = await import('../../controllers/scanController.js');
@@ -17,21 +21,23 @@ describe('handleScan', () => {
   let res;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
+
     req = { body: {} };
     res = {
-      status: vi.fn().mockReturnThis(),
-      json: vi.fn()
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
     };
   });
 
-  test('returns 400 when domain is missing', async () => {
+  it('returns 400 when domain is missing', async () => {
     await handleScan(req, res);
+
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith({ error: 'domain is required' });
   });
 
-  test('returns 400 when scanService throws INVALID_DOMAIN', async () => {
+  it('returns 400 when scanService throws INVALID_DOMAIN', async () => {
     req.body.domain = '   ';
     scanDomain.mockRejectedValue(new Error('INVALID_DOMAIN'));
 
@@ -41,7 +47,7 @@ describe('handleScan', () => {
     expect(res.json).toHaveBeenCalledWith({ error: 'invalid domain' });
   });
 
-  test('successful scan inserts into DB and returns result', async () => {
+  it('successful scan inserts into DB and returns result', async () => {
     req.body.domain = 'example.com';
 
     const mockResult = {
@@ -49,7 +55,7 @@ describe('handleScan', () => {
       ip: '1.1.1.1',
       ssl: { valid: true },
       whois: { registrarName: 'Cloudflare' },
-      timestamp: '2026-01-07T12:00:00Z'
+      timestamp: '2026-01-07T12:00:00Z',
     };
 
     scanDomain.mockResolvedValue(mockResult);
@@ -60,11 +66,11 @@ describe('handleScan', () => {
     expect(insertResult).toHaveBeenCalledWith(mockResult);
     expect(res.json).toHaveBeenCalledWith({
       id: 42,
-      result: mockResult
+      result: mockResult,
     });
   });
 
-  test('returns 500 when scanService throws SCAN_FAILED', async () => {
+  it('returns 500 when scanService throws SCAN_FAILED', async () => {
     req.body.domain = 'example.com';
     scanDomain.mockRejectedValue(new Error('SCAN_FAILED'));
 
@@ -74,7 +80,7 @@ describe('handleScan', () => {
     expect(res.json).toHaveBeenCalledWith({ error: 'scan failed' });
   });
 
-  test('returns 500 when insertResult throws', async () => {
+  it('returns 500 when insertResult throws', async () => {
     req.body.domain = 'example.com';
 
     scanDomain.mockResolvedValue({
@@ -82,7 +88,7 @@ describe('handleScan', () => {
       ip: '1.1.1.1',
       ssl: {},
       whois: {},
-      timestamp: '2026-01-07T12:00:00Z'
+      timestamp: '2026-01-07T12:00:00Z',
     });
 
     insertResult.mockImplementation(() => {

@@ -1,22 +1,13 @@
 // services/scanService.js
 import whois from 'whois-json';
 import sslChecker from 'ssl-checker';
+import { normalizeDomain } from '../utils/domainUtils.js';
 
 /**
  * Normalize domain input by stripping protocol, lowercasing, and trimming.
  * @param {string} domain - Raw domain input
  * @returns {string} Normalized domain
  */
-function normalizeDomain(domain) {
-  if (!domain || typeof domain !== 'string') return '';
-  let d = domain.trim().toLowerCase();
-  d = d.replace(/^[a-z]+:\/\//, ''); // remove protocol
-  d = d.split('/')[0].split('?')[0].split('#')[0]; // remove path, query, hash
-  if (d.includes('@')) d = d.split('@').pop(); // remove credentials
-  d = d.split(':')[0]; // remove port
-  if (d.endsWith('.')) d = d.slice(0, -1); // remove trailing dot
-  return d;
-}
 
 /**
  * Performs a comprehensive domain scan including WHOIS, SSL, and IP lookups.

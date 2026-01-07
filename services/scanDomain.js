@@ -1,10 +1,7 @@
 import sslChecker from 'ssl-checker';
 import * as dns from 'node:dns/promises';
 import { getWhoisData } from './whoisService.js';
-import {
-  normalizeDomain,
-  isValidDomain,
-} from '../controllers/scanController.js';
+import { normalizeDomain, isValidDomain } from '../utils/domainUtils.js';
 
 async function scanDomain(rawInput) {
   const domain = rawInput?.trim().toLowerCase();

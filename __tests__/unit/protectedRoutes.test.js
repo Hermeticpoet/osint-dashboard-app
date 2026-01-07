@@ -9,6 +9,7 @@ if (!process.env.JWT_SECRET) {
   process.env.JWT_SECRET = TEST_SECRET;
 }
 
+// Mock scanDomain from services/scanDomain.js (your real file)
 const mockScanDomain = jest.fn(async domain => ({
   domain,
   ip: '127.0.0.1',
@@ -17,9 +18,11 @@ const mockScanDomain = jest.fn(async domain => ({
 }));
 
 await jest.unstable_mockModule('../../services/scanDomain.js', () => ({
+  __esModule: true,
   scanDomain: mockScanDomain,
 }));
 
+// Import app AFTER mocks are registered
 const { app } = await import('../../server.js');
 
 function signToken(role, overrides = {}) {
@@ -41,7 +44,6 @@ function signInvalidToken(role, overrides = {}) {
     ...overrides,
   };
 
-  // Signed with a different secret so verification fails
   return jwt.sign(payload, 'wrong-secret', {
     expiresIn: '1h',
   });
@@ -97,8 +99,11 @@ describe('Protected routes integration', () => {
       expect(res.status).toBe(200);
       expect(typeof res.body).toBe('object');
       expect(res.body).not.toBeNull();
-      expect(res.body).toHaveProperty('domain');
-      expect(res.body.domain).toBe('example.com');
+
+      // FIXED: match real controller output shape
+      expect(res.body).toHaveProperty('result');
+      expect(res.body.result).toHaveProperty('domain');
+      expect(res.body.result.domain).toBe('example.com');
     });
   });
 
@@ -119,7 +124,6 @@ describe('Protected routes integration', () => {
 
       expect(res.status).toBe(200);
       expect(res.body).toBeDefined();
-      // handleGetResults returns an array of rows
       expect(Array.isArray(res.body)).toBe(true);
     });
 

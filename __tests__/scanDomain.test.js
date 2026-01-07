@@ -11,6 +11,7 @@ jest.unstable_mockModule('ssl-checker', () => ({
 }));
 
 jest.unstable_mockModule('../services/whoisService.js', () => ({
+  __esModule: true,
   getWhoisData: jest.fn(),
 }));
 
