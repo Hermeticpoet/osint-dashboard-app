@@ -1,5 +1,3 @@
-README.md
-
 # osint-dashboard
 
 A modular OSINT dashboard for scanning domains, gathering intelligence, and visualizing results. Includes a web dashboard and a powerful CLI tool for automated domain scanning.
@@ -238,17 +236,99 @@ The Express server runs on `http://localhost:4000` by default.
 
 ### POST /scan
 
-Scans a single domain and stores the result in the database.
-Auth: Admin-only. Requires `Authorization: Bearer <JWT_TOKEN>`.
+Initiates a domain scan and stores the result in the database.
+This endpoint is **admin-only** and requires a valid JWT.
 
-Example:
+#### Authentication
 
-```zsh
-curl -X POST http://localhost:4000/scan \
-  -H "Authorization: Bearer <JWT_TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{"domain":"example.com"}'
+```http
+POST /login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "secret"
+}
 ```
+
+Successful Response:
+
+```json
+{
+  "token": "<jwt_here>"
+}
+```
+
+Use this token in the **Authorization** header:
+
+```http
+Authorization: Bearer <jwt_here>
+```
+
+Request:
+
+```http
+POST /scan
+Content-Type: application/json
+Authorization: Bearer <admin_jwt>
+```
+
+Body:
+
+```json
+{
+  "domain": "example.com"
+}
+```
+
+Response:
+
+```json
+{
+  "id": 62,
+  "result": {
+    "domain": "example.com",
+    "ip": "104.18.26.120",
+    "ssl": {
+      "valid": true,
+      "validFrom": "2025-12-16T19:39:32.000Z",
+      "validTo": "2026-03-16T18:32:44.000Z",
+      "daysRemaining": 68
+    },
+    "whois": {
+      "registrarName": null,
+      "creationDate": null,
+      "expirationDate": null
+    },
+    "timestamp": "2026-01-07T14:02:43.117Z"
+  }
+}
+```
+
+**Scan Details**
+The scan performs three independent lookups:
+
+**WHOIS**: registrar, creation date, expiration date
+
+**SSL**: certificate validity, dates, days remaining
+
+**IP**: resolved IPv4/IPv6 address via ip-api.com
+
+Partial failures are allowed. If all three fail, the service returns:
+
+```json
+{ "error": "scan failed" }
+```
+
+**Persistence**
+Each scan result is stored in the **results** table with:
+
+- **id**
+- **domain**
+- **ip**
+- **ssl** (JSON)
+- **whois** (JSON)
+- **timestamp**
 
 ### GET /results
 
