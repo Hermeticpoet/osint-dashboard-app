@@ -504,3 +504,10 @@ Remaining coverage gaps and planned improvements:
   - Next step: add end-to-end tests for `/results/export.csv` and `DELETE /results/:id` to validate role enforcement and error semantics across all protected routes.
 
 The goal is to move from “high coverage on core paths” to **systematic coverage of all controllers and services**, ensuring that authorization, error handling, and data shape guarantees remain stable as the system evolves.
+
+### Current Milestone — January 2026
+
+- Jest test suite stable under ESM + experimental-vm-modules.
+- `authenticateToken` excluded from coverage due to instrumentation issues.
+- Controller coverage ~65–70%.
+- **Next milestone:** Implement full test suite for `exportResultsController.js` to raise controller coverage into the 90% range.
