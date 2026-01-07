@@ -34,7 +34,8 @@
     "json2csv": "^6.0.0-alpha.2",
     "jsonwebtoken": "^9.0.3",
     "p-limit": "^7.2.0",
-    "ssl-checker": "^2.0.10"
+    "ssl-checker": "^2.0.10",
+    "whois-json": "^2.0.4"
   },
   "devDependencies": {
     "jest": "^30.2.0",
