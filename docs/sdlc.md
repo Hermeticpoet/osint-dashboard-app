@@ -1,5 +1,3 @@
-docs/sdlc.md
-
 # SDLC Documentation – osint-dashboard
 
 ## Table of Contents
@@ -511,3 +509,10 @@ The goal is to move from “high coverage on core paths” to **systematic cover
 - `authenticateToken` excluded from coverage due to instrumentation issues.
 - Controller coverage ~65–70%.
 - **Next milestone:** Implement full test suite for `exportResultsController.js` to raise controller coverage into the 90% range.
+
+### 20.3 Milestone Complete — Export Results Controller Test Suite
+
+- Full Jest unit test coverage added for `exportResultsController.js`.
+- CSV generation, validation, DB call parameters, and error handling are now fully tested.
+- Controller coverage increased to ~97%.
+- This completes the testing hardening phase before introducing the new scan service.

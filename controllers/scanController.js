@@ -1,70 +1,47 @@
+// controllers/scanController.js
+import { scanDomain } from '../services/scanService.js';
 import { insertResult } from '../db/db.js';
-import { scanDomain } from '../services/scanDomain.js';
-
-/**
- * Normalizes a potentially messy domain input to a clean FQDN.
- * Strips protocols, paths, credentials, ports, etc.
- * @param {string} input - Raw domain/URL string.
- * @returns {string} Cleaned lowercase domain or empty string if invalid input.
- */
-function normalizeDomain(input) {
-  if (!input || typeof input !== 'string') return '';
-  let d = input.trim().toLowerCase();
-  d = d.replace(/^[a-z]+:\/\//, ''); // remove protocol
-  d = d.split('/')[0].split('?')[0].split('#')[0];
-  if (d.includes('@')) d = d.split('@').pop(); // remove credentials
-  d = d.split(':')[0]; // remove port
-  if (d.endsWith('.')) d = d.slice(0, -1);
-  return d;
-}
-
-/**
- * Validates whether a given domain is a syntactically valid FQDN.
- * @param {string} domain - Domain string to validate.
- * @returns {boolean} True if valid, false otherwise.
- */
-function isValidDomain(domain) {
-  if (!domain || domain.length > 253) return false;
-
-  const labels = domain.split('.');
-  if (labels.length < 2) return false;
-
-  const labelRe = /^(?!-)[a-z0-9-]{1,63}(?<!-)$/i;
-  for (const label of labels) {
-    if (!labelRe.test(label)) return false;
-  }
-
-  const tld = labels[labels.length - 1];
-  if (!/^[a-z0-9-]{2,}$/i.test(tld)) return false;
-
-  return true;
-}
 
 /**
  * Handles POST /scan requests.
- * Delegates to scanDomain() and returns result or error.
+ * Validates input, performs domain scan, and saves result to database.
  */
-async function handleScan(req, res) {
+export async function handleScan(req, res) {
+  // Check if domain is provided
+  if (!req.body?.domain) {
+    return res.status(400).json({ error: 'domain is required' });
+  }
+
+  const domain = req.body.domain;
+
   try {
-    const raw = req.body?.domain;
-    const result = await scanDomain(raw);
+    // Perform domain scan
+    const result = await scanDomain(domain);
 
-    // NEW: Save result to the database
-    const rowId = insertResult({
-      domain: result.domain,
-      ip: result.ip,
-      ssl: result.ssl,
-      whois: result.whois || null,
-      timestamp: new Date().toISOString(),
+    // Save result to database
+    let id;
+    try {
+      id = insertResult(result);
+    } catch (err) {
+      return res.status(500).json({ error: 'failed to save result' });
+    }
+
+    // Return success response
+    return res.json({
+      id,
+      result,
     });
-
-    // Return the scan result plus the database row ID
-    return res.json({ ...result, id: rowId });
   } catch (err) {
-    return res.status(400).json({
-      error: err.message || 'Scan failed',
-    });
+    // Handle specific error types
+    if (err.message === 'INVALID_DOMAIN') {
+      return res.status(400).json({ error: 'invalid domain' });
+    }
+
+    if (err.message === 'SCAN_FAILED') {
+      return res.status(500).json({ error: 'scan failed' });
+    }
+
+    // Unexpected error - return generic error
+    return res.status(500).json({ error: err.message || 'scan failed' });
   }
 }
-
-export { handleScan, normalizeDomain, isValidDomain };
