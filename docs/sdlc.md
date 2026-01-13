@@ -19,7 +19,8 @@ Engineering reference documentation for the osint-dashboard project architecture
 13. [CSV Export System](#13-csv-export-system)
 14. [Testing Strategy](#14-testing-strategy)
 15. [Coverage Summary](#15-coverage-summary)
-16. [Future Work](#16-future-work)
+16. [Verification Results](#16-verification-results)
+17. [Future Work](#17-future-work)
 
 ## 1. High-Level Architecture
 
@@ -127,7 +128,6 @@ Input Domain
 ### Domain Normalization (`utils/domainUtils.js`)
 
 **`normalizeDomain(input)`:**
-
 - Removes protocols (`http://`, `https://`)
 - Strips paths, query strings, fragments
 - Removes credentials (`user:pass@`)
@@ -148,7 +148,6 @@ export const normalizeDomain = input => {
 ### Domain Validation (`utils/domainUtils.js`)
 
 **`isValidDomain(input)`:**
-
 - Type check: Must be string
 - Non-empty after trimming
 - Must contain at least one dot (TLD requirement)
@@ -157,7 +156,6 @@ export const normalizeDomain = input => {
 - Total length: No explicit maximum (relies on DNS limits)
 
 **Validation Rules:**
-
 - Rejects domains with invalid characters (`$`, `_`, etc.)
 - Rejects domains starting/ending with hyphens
 - Rejects single-character TLDs
@@ -166,14 +164,12 @@ export const normalizeDomain = input => {
 ### Controller Validation
 
 **Pre-scan Validation:**
-
 - Check `req.body.domain` exists
 - Normalize domain input
 - Validate normalized domain
 - Return `400 INVALID_DOMAIN` if validation fails
 
 **Post-scan Validation:**
-
 - Handle `scanDomain()` errors
 - Map `INVALID_DOMAIN` → `400`
 - Map `SCAN_FAILED` → `500`
@@ -183,14 +179,12 @@ export const normalizeDomain = input => {
 ### Authentication
 
 **JWT-Based Authentication:**
-
 - Stateless token verification
 - Token contains: `username`, `role`
 - Signed with `JWT_SECRET` from environment
 - Configurable expiration (`JWT_EXPIRES_IN`)
 
 **Middleware: `authenticateToken`**
-
 - Extracts token from `Authorization: Bearer <token>` header
 - Verifies signature and expiration
 - Attaches `req.user = { username, role }` on success
@@ -199,13 +193,11 @@ export const normalizeDomain = input => {
 ### Authorization
 
 **Role-Based Access Control (RBAC):**
-
 - Two roles: `admin` (full access), `read-only` (view-only)
 - Middleware: `authorizeRole(allowed)`
 - `allowed` can be string (`"admin"`) or array (`["admin", "read-only"]`)
 
 **Middleware: `authorizeRole`**
-
 - Checks `req.user.role` against `allowed` roles
 - Case-sensitive role comparison
 - Returns `401` if `req.user` missing
@@ -225,19 +217,16 @@ export const normalizeDomain = input => {
 ### Security Considerations
 
 **Input Validation:**
-
 - Domain normalization prevents injection attacks
 - SQLite parameterized queries prevent SQL injection
 - Type checking prevents malformed requests
 
 **Error Handling:**
-
 - Generic error messages prevent information leakage
 - No stack traces in production responses
 - Consistent error format across endpoints
 
 **Future Enhancements:**
-
 - Rate limiting per user/IP
 - Audit logging for admin actions
 - Token refresh mechanism
@@ -250,25 +239,21 @@ export const normalizeDomain = input => {
 **Technology:** RDAP (Registration Data Access Protocol) via Verisign endpoints
 
 **Supported TLDs:**
-
 - `.com` domains
 - `.net` domains
 - Returns `null` for unsupported TLDs
 
 **Data Extraction:**
-
 - Registrar name from RDAP vCard
 - Creation date from RDAP events
 - Expiration date from RDAP events
 
 **Error Handling:**
-
 - Network failures: Return `null` (non-blocking)
 - Unsupported TLDs: Return `null`
 - Malformed responses: Log warning, return `null`
 
 **Limitations:**
-
 - Only supports `.com` and `.net`
 - No fallback to traditional WHOIS protocol
 - Rate limiting not implemented (relies on external service)
@@ -280,43 +265,37 @@ export const normalizeDomain = input => {
 **Library:** `ssl-checker` npm package
 
 **Data Collected:**
-
 - `valid`: Boolean certificate validity
 - `validFrom`: Certificate issue date
 - `validTo`: Certificate expiry date
 - `daysRemaining`: Days until expiration
 
 **Error Handling:**
-
 - Connection failures: Return `null` for all SSL fields
 - Invalid certificates: Still return data (with `valid: false`)
 - Timeout: Return `null` (non-blocking)
 
 **Port Configuration:**
-
 - Default: Port 443 (HTTPS)
 - Method: GET request
 
 ## 7. IP Resolution Module
 
-### Implementation of Module
+### Implementation
 
 **Service:** ip-api.com JSON API
 
 **Endpoint:** `http://ip-api.com/json/<domain>`
 
 **Data Extracted:**
-
 - `query`: Resolved IP address (IPv4 or IPv6)
 
 **Error Handling:**
-
 - Network failures: Return `null` for IP
 - Invalid domains: Return `null` (non-blocking)
 - API errors: Return `null`
 
 **Limitations:**
-
 - External dependency on ip-api.com
 - No fallback DNS resolution
 - Rate limiting not implemented
@@ -328,7 +307,6 @@ export const normalizeDomain = input => {
 **Entry Point:** `cli/scan.js` (exposed as `osint-scan` via `package.json` bin)
 
 **Dependencies:**
-
 - `commander`: Argument parsing and help output
 - `p-limit`: Concurrency control
 - `fs-extra`: File operations
@@ -336,24 +314,20 @@ export const normalizeDomain = input => {
 ### Features
 
 **Batch Processing:**
-
 - Reads domains from file (one per line)
 - Skips invalid domains with warnings
 - Continues processing on individual failures
 
 **Concurrency Control:**
-
 - Configurable parallelism (`--concurrency`)
 - Default: 10 concurrent scans
 - Prevents resource exhaustion
 
 **Output Formats:**
-
 - JSON: Structured data with full scan results
 - CSV: Flattened format for spreadsheet import
 
 **Verbose Mode:**
-
 - Real-time progress indicators
 - Error diagnostics
 - Timing information
@@ -383,19 +357,16 @@ osint-scan --input domains.txt --concurrency 5 --verbose
 ### RESTful Principles
 
 **Resource-Based URLs:**
-
 - `/scan`: Scan operations
 - `/results`: Result queries
 - `/results/:id`: Individual result operations
 
 **HTTP Methods:**
-
 - `POST`: Create resources (scans)
 - `GET`: Retrieve resources (results, exports)
 - `DELETE`: Remove resources (results)
 
 **Status Codes:**
-
 - `200`: Success
 - `400`: Client error (validation, malformed request)
 - `401`: Unauthorized (missing token)
@@ -406,12 +377,10 @@ osint-scan --input domains.txt --concurrency 5 --verbose
 ### Request/Response Formats
 
 **Consistent JSON Structure:**
-
 - Success: `{ id: <number>, result: <object> }`
 - Error: `{ error: <string> }` or `{ id: null, result: <string> }`
 
 **Query Parameters:**
-
 - Filtering: `domain`, `ssl_valid`, `registrar`, date ranges
 - Pagination: `limit`, `offset`
 - All parameters validated before database queries
@@ -419,19 +388,16 @@ osint-scan --input domains.txt --concurrency 5 --verbose
 ### Error Handling
 
 **Validation Errors (400):**
-
 - Missing required fields
 - Invalid parameter types
 - Out-of-range values
 
 **Authentication Errors (401/403):**
-
 - Missing token: `401 { error: "Token required" }`
 - Invalid token: `403 { error: "Invalid or expired token" }`
 - Insufficient role: `403 { error: "Forbidden" }`
 
 **Server Errors (500):**
-
 - Scan failures: `{ id: null, result: "SCAN_FAILED" }`
 - Database errors: `{ error: "failed to save result" }`
 
@@ -440,7 +406,6 @@ osint-scan --input domains.txt --concurrency 5 --verbose
 ### Authentication Middleware
 
 **`authenticateToken(req, res, next)`:**
-
 - Extracts JWT from `Authorization` header
 - Verifies signature with `JWT_SECRET`
 - Checks expiration
@@ -448,7 +413,6 @@ osint-scan --input domains.txt --concurrency 5 --verbose
 - Returns `401` if verification fails
 
 **Error Responses:**
-
 - Missing header: `401 { error: "Token required" }`
 - Invalid signature: `403 { error: "Invalid or expired token" }`
 - Expired token: `403 { error: "Invalid or expired token" }`
@@ -456,7 +420,6 @@ osint-scan --input domains.txt --concurrency 5 --verbose
 ### Authorization Middleware
 
 **`authorizeRole(allowed)`:**
-
 - Factory function returning middleware
 - `allowed`: String or array of role strings
 - Checks `req.user.role` against `allowed`
@@ -485,7 +448,6 @@ router.get(
 **Request Flow:**
 
 ```
-
 Request
   ↓
 authenticateToken (verify JWT, attach req.user)
@@ -519,7 +481,6 @@ CREATE TABLE results (
 ```
 
 **Design Decisions:**
-
 - `ssl_valid` as INTEGER (1/0) for boolean indexing
 - TEXT columns for dates (ISO format strings)
 - NULL allowed for optional WHOIS fields
@@ -528,20 +489,17 @@ CREATE TABLE results (
 ### Indexing Strategy
 
 **Indexes Created:**
-
 - `idx_results_ssl_valid`: Filter by SSL validity
 - `idx_results_registrar`: Filter by registrar name
 - `idx_results_created_at`: Temporal queries and sorting
 - `idx_results_whois_expiration`: WHOIS expiration filtering
 
 **Index Selection:**
-
 - Based on common filter patterns
 - All indexes created idempotently (`IF NOT EXISTS`)
 - No composite indexes (single-column only)
 
 **Performance Impact:**
-
 - Filter queries: 10-100x faster with indexes
 - Pagination: Efficient with indexed `created_at`
 - Export: Benefits from all indexes
@@ -551,40 +509,33 @@ CREATE TABLE results (
 ### Filter Types
 
 **Exact Match:**
-
 - `domain`: Case-insensitive domain match
 - `registrar`: Exact registrar name match
 
 **Boolean:**
-
 - `ssl_valid`: `true` or `false` (converted to 1/0)
 
 **Date Ranges:**
-
 - `created_from` / `created_to`: Scan date range
 - `whois_expiration_from` / `whois_expiration_to`: WHOIS expiration range
 - Format: `YYYY-MM-DD`
 
 **Temporal:**
-
 - `since`: ISO timestamp filter on `created_at`
 
 ### Query Construction
 
 **Dynamic WHERE Clauses:**
-
 - Build WHERE conditions based on provided parameters
 - Use parameterized queries (SQLite placeholders)
 - Combine multiple filters with AND logic
 
 **Validation:**
-
 - Date format validation (`YYYY-MM-DD`)
 - Boolean string conversion (`"true"` → `true`)
 - Integer validation for `limit` and `offset`
 
 **Pagination:**
-
 - `LIMIT` clause for row count
 - `OFFSET` clause for skipping rows
 - Default: `limit=50`, `offset=0`
@@ -622,7 +573,6 @@ LIMIT 50 OFFSET 0
 **Library:** `json2csv` Parser
 
 **Process:**
-
 1. Fetch results using same filtering logic as `GET /results`
 2. Flatten nested JSON fields into CSV columns
 3. Generate CSV with header comments
@@ -632,13 +582,11 @@ LIMIT 50 OFFSET 0
 ### Flattening Logic
 
 **Field Mapping:**
-
 - Direct DB columns: `id`, `domain`, `ip`, `created_at`
 - SSL fields: `ssl_valid`, `ssl_valid_from`, `ssl_valid_to`, `ssl_days_remaining`
 - WHOIS fields: `registrar`, `whois_creationDate`, `whois_expirationDate`
 
 **JSON Parsing:**
-
 - Safely parse `result` JSON column
 - Fallback to DB columns if JSON parsing fails
 - Handle missing nested fields gracefully
@@ -656,13 +604,11 @@ LIMIT 50 OFFSET 0
 ```
 
 **Column Order:**
-
 1. `id`, `domain`, `created_at`, `ip`
 2. `ssl_valid`, `ssl_valid_from`, `ssl_valid_to`, `ssl_days_remaining`
 3. `registrar`, `whois_creationDate`, `whois_expirationDate`
 
 **Safety Limits:**
-
 - Maximum 50,000 rows per export
 - Hard limit prevents memory exhaustion
 - Validation for `limit` and `offset` parameters
@@ -672,13 +618,11 @@ LIMIT 50 OFFSET 0
 ### Test Structure
 
 **Unit Tests:**
-
 - `__tests__/unit/*.test.js`: Isolated component tests
 - Mock dependencies with `jest.unstable_mockModule`
 - Test error paths and edge cases
 
 **Integration Tests:**
-
 - `__tests__/unit/protectedRoutes.test.js`: End-to-end route tests
 - Use `supertest` for HTTP testing
 - Mock external services (scanDomain)
@@ -686,45 +630,38 @@ LIMIT 50 OFFSET 0
 ### Test Coverage
 
 **Middleware:**
-
 - `authenticateToken`: Token verification, error handling
 - `authorizeRole`: Role checking, case sensitivity, edge cases
 - Coverage: ~95%
 
 **Controllers:**
-
 - `scanController`: Domain validation, error handling, DB integration
 - `resultsController`: Filtering, pagination, validation
 - `exportResultsController`: CSV generation, error handling
 - Coverage: ~97%
 
 **Services:**
-
 - `scanService`: Lookup orchestration, failure handling
 - `whoisService`: RDAP parsing, error handling
 - Coverage: Strong unit test coverage
 
 **Utilities:**
-
 - `domainUtils`: Normalization, validation, edge cases
 - Coverage: Comprehensive
 
 ### Test Configuration
 
 **Runtime:**
-
 - Node.js ESM (`"type": "module"`)
 - Jest v30 with `--experimental-vm-modules`
 - `@jest/globals` for ESM-compatible APIs
 
 **Mocking Strategy:**
-
 - `jest.unstable_mockModule` for ESM modules
 - Mock external services (WHOIS, SSL, IP lookup)
 - Mock database layer for controller tests
 
 **Test Data:**
-
 - `db/seed.sql`: Reproducible test dataset
 - Covers all filter combinations
 - Includes edge cases (null values, expired certs)
@@ -734,58 +671,132 @@ LIMIT 50 OFFSET 0
 ### Current Coverage (January 2026)
 
 **Middleware:**
-
 - `authenticateToken`: ~95% (excluded from coverage due to instrumentation issues)
 - `authorizeRole`: ~95% (unit + integration tests)
 
 **Controllers:**
-
 - `scanController`: ~97% (validation, error handling, DB integration)
 - `resultsController`: ~97% (filtering, pagination, validation)
 - `exportResultsController`: ~97% (CSV generation, error handling)
 
 **Services:**
-
 - `scanService`: Strong coverage (lookup orchestration, failure handling)
 - `whoisService`: Good coverage (RDAP parsing, error handling)
 
 **Utilities:**
-
 - `domainUtils`: Comprehensive coverage (normalization, validation)
 
 ### Coverage Gaps
 
 **Remaining Gaps:**
-
 - Complex filter combinations in `resultsController`
 - Extreme pagination values (very large offsets)
 - CSV generation failures (malformed JSON edge cases)
 - Network failure scenarios in `whoisService`
 
 **Next Steps:**
-
 - Add targeted tests for edge cases
 - Extend integration tests to cover all endpoints
 - Add performance tests for large datasets
 
-## 16. Future Work
+## 16. Verification Results (13 Jan 2026)
+
+### End-to-End Testing Summary
+
+All core user stories have been validated through comprehensive manual testing. The MVP is stable and all critical paths function as expected.
+
+### User Story Verification
+
+**US-001: Login Flow**
+- **Status**: ✅ PASS
+- **Admin Login**: Successfully authenticates, receives JWT, redirects to dashboard
+- **Read-only Login**: Successfully authenticates, receives JWT, redirects to dashboard
+- **JWT Storage**: Token persists in localStorage across page refreshes
+- **Session Persistence**: User remains authenticated when navigating between pages
+- **Auto-redirect**: Unauthenticated users redirected to login; authenticated users bypass login
+
+**US-002: Scan Domain**
+- **Status**: ✅ PASS
+- **Scan Execution**: POST /scan successfully initiates domain scans (admin-only)
+- **Result Display**: Scan results render correctly with domain, IP, SSL, and WHOIS data
+- **Data Persistence**: Scanned domains saved to database with unique IDs
+- **Error Handling**: Invalid domains return appropriate error messages (400 INVALID_DOMAIN)
+- **UI Rendering**: Results display in organized, readable format with proper field labels
+
+**US-003: View Results**
+- **Status**: ✅ PASS
+- **Results Table**: GET /results displays all stored scan results in tabular format
+- **Data Rendering**: All fields (domain, IP, SSL status, registrar, dates) render correctly
+- **Null Field Handling**: Missing WHOIS data displays as "N/A" without errors
+- **Pagination**: Results paginate correctly with 50 results per page
+- **Filtering**: Domain, SSL status, and registrar filters function as expected
+
+**US-004: Admin Delete**
+- **Status**: ✅ PASS
+- **Delete Functionality**: Admin users can delete results via DELETE /results/:id
+- **Delete UI**: Delete buttons appear only for admin users
+- **Read-only Restrictions**: Read-only users see "Read-only" badge instead of delete buttons
+- **API Enforcement**: Backend correctly enforces role restrictions (403 Forbidden for read-only)
+
+**US-005: CSV Export**
+- **Status**: ✅ PASS
+- **Export Access**: Admin users can export results as CSV via GET /results/export.csv
+- **Export Functionality**: CSV downloads with correct filename and content
+- **Filter Support**: Export respects all filter parameters from results page
+- **UI Integration**: Export button appears only for admin users
+
+**US-006: Read-only Restrictions**
+- **Status**: ✅ PASS
+- **UI Restrictions**: Interface elements (scan button, delete buttons, export button) conditionally displayed based on role
+- **API Enforcement**: Backend correctly enforces role restrictions with 403 Forbidden responses
+- **Permission Feedback**: Read-only users see appropriate messaging when attempting restricted actions
+
+**US-007: Navigation and Session Handling**
+- **Status**: ✅ PASS
+- **Dashboard Navigation**: Both admin and read-only users can access dashboard
+- **Role Display**: User role (admin/read-only) correctly displayed in header
+- **Navigation Links**: Scan and Results links function correctly
+- **Logout**: Logout button clears session and redirects to login
+- **Session Persistence**: JWT token persists across page refreshes and navigation
+
+### Bug Fixes
+
+**Login Import Bug (Fixed 13 Jan 2026):**
+- **Issue**: `login.js` incorrectly imported `setToken` from `api.js` instead of `auth.js`
+- **Impact**: Login functionality would fail when attempting to store JWT token
+- **Resolution**: Updated import statement to `import { isAuthenticated, setToken } from './auth.js'`
+- **Verification**: Login flow now correctly stores JWT token and user info in localStorage
+- **Files Changed**: `public/js/login.js`
+
+### Testing Notes
+
+**Test Environment:**
+- Browser: Chrome/Edge (latest)
+- Server: Node.js 18+ with Express
+- Database: SQLite (in-memory for testing)
+- Authentication: JWT with 1-hour expiration
+
+**Test Coverage:**
+- All critical user flows validated manually
+- Both admin and read-only roles tested
+- Error scenarios validated (invalid tokens, insufficient permissions)
+- Edge cases tested (null WHOIS data, missing SSL information)
+
+## 17. Future Work
 
 ### Short-Term (Q1 2026)
 
 **Authentication:**
-
 - Replace stub login with real user store
 - Implement password hashing (bcrypt)
 - Add token refresh mechanism
 
 **Testing:**
-
 - Complete integration test coverage
 - Add performance benchmarks
 - Implement CI/CD pipeline
 
 **Documentation:**
-
 - API documentation (OpenAPI/Swagger)
 - Deployment guide
 - Contributing guidelines
@@ -793,20 +804,17 @@ LIMIT 50 OFFSET 0
 ### Medium-Term (Q2-Q3 2026)
 
 **Features:**
-
 - Additional TLD support for WHOIS
 - Rate limiting per user/IP
 - Audit logging for admin actions
-- Web dashboard UI
+- Enhanced web dashboard UI with real-time updates
 
 **Performance:**
-
 - Database query optimization
 - Caching layer for frequent queries
 - Batch scan API endpoint
 
 **Security:**
-
 - Secret rotation policy
 - Granular permissions (per-action)
 - IP whitelisting for admin endpoints
@@ -814,13 +822,11 @@ LIMIT 50 OFFSET 0
 ### Long-Term (Q4 2026+)
 
 **Scalability:**
-
 - PostgreSQL migration for production
 - Horizontal scaling support
 - Message queue for async scans
 
 **Advanced Features:**
-
 - Historical trend analysis
 - Alert system for expiring domains/certs
 - Integration with threat intelligence feeds

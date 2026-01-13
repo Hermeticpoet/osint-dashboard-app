@@ -493,6 +493,86 @@ export JWT_SECRET="test-secret"
 npm test
 ```
 
+## Functional Testing (Completed 13 Jan 2026)
+
+All core functionality has been validated through comprehensive end-to-end testing. The following flows have been verified and are fully operational:
+
+### Authentication & Session Management
+
+- **Login Flow (Admin)**: Successfully authenticates with admin credentials, receives JWT token, and redirects to dashboard
+- **Login Flow (Read-only)**: Successfully authenticates with read-only credentials, receives JWT token, and redirects to dashboard
+- **JWT Storage**: Token persists in localStorage across page refreshes
+- **Session Persistence**: User remains logged in when navigating between pages
+- **Auto-redirect**: Unauthenticated users are redirected to login page; authenticated users bypass login
+
+### Dashboard Navigation
+
+- **Dashboard Access**: Both admin and read-only users can access dashboard
+- **Role Display**: User role (admin/read-only) is correctly displayed in header
+- **Navigation Links**: Scan and Results links function correctly
+- **Logout**: Logout button clears session and redirects to login
+
+### Domain Scanning
+
+- **Scan Endpoint**: POST /scan successfully initiates domain scans (admin-only)
+- **Scan Results**: Results display correctly with domain, IP, SSL, and WHOIS data
+- **Result Persistence**: Scanned domains are saved to database with unique IDs
+- **Error Handling**: Invalid domains return appropriate error messages
+- **UI Rendering**: Scan results render in organized, readable format
+
+### Results Management
+
+- **Results Table**: GET /results displays all stored scan results in tabular format
+- **Data Rendering**: All fields (domain, IP, SSL status, registrar, dates) render correctly
+- **Null Field Handling**: Missing WHOIS data displays as "N/A" without errors
+- **Pagination**: Results paginate correctly with 50 results per page
+- **Filtering**: Domain, SSL status, and registrar filters function as expected
+
+### Admin Operations
+
+- **Delete Functionality**: Admin users can delete results via DELETE /results/:id
+- **Delete UI**: Delete buttons appear only for admin users
+- **Read-only Restrictions**: Read-only users see "Read-only" badge instead of delete buttons
+- **CSV Export**: Admin users can export results as CSV via GET /results/export.csv
+- **Export Functionality**: CSV downloads with correct filename and content
+
+### Role-Based Access Control
+
+- **Admin Permissions**: Admin users have access to all features (scan, view, delete, export)
+- **Read-only Permissions**: Read-only users can view results but cannot scan, delete, or export
+- **UI Restrictions**: Interface elements (buttons, links) are conditionally displayed based on role
+- **API Enforcement**: Backend correctly enforces role restrictions with 403 Forbidden responses
+
+### Error Handling
+
+- **Authentication Errors**: Missing or invalid tokens redirect to login
+- **Permission Errors**: Insufficient role access shows appropriate error messages
+- **Network Errors**: Failed API calls display user-friendly error messages
+- **Validation Errors**: Invalid input shows clear validation feedback
+
+## Known Limitations / Future Enhancements
+
+### UI/UX Improvements
+
+- **WHOIS Fallback Labels**: Currently displays "N/A" for missing WHOIS data; could add explanatory labels (e.g., "WHOIS data unavailable for this TLD")
+- **SSL Date Formatting**: SSL certificate dates could be formatted more readably (e.g., "Jan 15, 2026" instead of ISO format)
+- **UI Polish**: Additional visual enhancements such as loading spinners, success notifications, and improved mobile responsiveness
+- **Mobile Responsiveness**: Current design is functional on mobile but could benefit from optimized layouts for smaller screens
+
+### Feature Enhancements
+
+- **Real-time Updates**: Results table could auto-refresh or show live scan progress
+- **Bulk Operations**: Support for bulk delete or bulk export operations
+- **Advanced Filtering UI**: Date range pickers and multi-select filters in the web interface
+- **Scan History**: View scan history for a specific domain across time
+
+### Technical Improvements
+
+- **Error Recovery**: Automatic retry logic for failed scans
+- **Offline Support**: Service worker for offline functionality
+- **Performance**: Virtual scrolling for large result sets
+- **Accessibility**: Enhanced ARIA labels and keyboard navigation support
+
 ## License
 
 MIT License
