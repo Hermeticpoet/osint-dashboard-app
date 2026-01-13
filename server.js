@@ -1,10 +1,15 @@
 // server.js
 import 'dotenv/config';
 import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import scanRoutes from './routes/scan.js';
 import resultsRoutes from './routes/results.js';
 import authRouter from './routes/auth.js';
 import { authenticateToken, authorizeRole } from './middleware/auth.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(express.json());
@@ -22,9 +27,12 @@ app.use('/scan', authenticateToken, authorizeRole('admin'), scanRoutes);
 // Protect /results with mixed access
 app.use('/results', resultsRoutes);
 
-// Root (optional)
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Root (optional) - serve index.html for SPA routing
 app.get('/', (req, res) => {
-  res.send('osint-dashboard API');
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 const PORT = process.env.PORT || 4000;

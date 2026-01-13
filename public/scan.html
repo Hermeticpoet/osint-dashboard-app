@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scan Domain - OSINT Dashboard</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <header class="header">
+    <div class="header-content">
+      <h1><a href="/dashboard.html" class="header-link">OSINT Dashboard</a></h1>
+      <div class="header-right">
+        <span id="userInfo" class="user-info"></span>
+        <button id="logoutBtn" class="btn btn-secondary">Logout</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <div class="container">
+      <h2>Scan Domain</h2>
+      <p>Enter a domain name to perform a comprehensive scan including WHOIS, SSL certificate, and IP resolution.</p>
+
+      <form id="scanForm" class="scan-form">
+        <div class="form-group">
+          <label for="domain">Domain Name</label>
+          <input 
+            type="text" 
+            id="domain" 
+            name="domain" 
+            placeholder="example.com" 
+            required
+            pattern="[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]?\.[a-zA-Z]{2,}"
+          >
+          <small>Enter a valid domain name (e.g., example.com)</small>
+        </div>
+        <div id="errorMessage" class="error-message" style="display: none;"></div>
+        <button type="submit" class="btn btn-primary" id="scanBtn">Scan Domain</button>
+      </form>
+
+      <div id="scanResult" class="scan-result" style="display: none;">
+        <h3>Scan Result</h3>
+        <div id="resultContent"></div>
+      </div>
+
+      <div class="back-link">
+        <a href="/dashboard.html">← Back to Dashboard</a>
+      </div>
+    </div>
+  </main>
+
+  <script type="module" src="/js/scan.js"></script>
+</body>
+</html>

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Results - OSINT Dashboard</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <header class="header">
+    <div class="header-content">
+      <h1><a href="/dashboard.html" class="header-link">OSINT Dashboard</a></h1>
+      <div class="header-right">
+        <span id="userInfo" class="user-info"></span>
+        <button id="logoutBtn" class="btn btn-secondary">Logout</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <div class="container">
+      <h2>Scan Results</h2>
+
+      <div class="results-controls">
+        <div class="filters">
+          <div class="form-group">
+            <label for="filterDomain">Domain</label>
+            <input type="text" id="filterDomain" placeholder="Filter by domain">
+          </div>
+          <div class="form-group">
+            <label for="filterSsl">SSL Status</label>
+            <select id="filterSsl">
+              <option value="">All</option>
+              <option value="true">Valid</option>
+              <option value="false">Invalid/Expired</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="filterRegistrar">Registrar</label>
+            <input type="text" id="filterRegistrar" placeholder="Filter by registrar">
+          </div>
+          <button id="applyFilters" class="btn btn-primary">Apply Filters</button>
+          <button id="clearFilters" class="btn btn-secondary">Clear</button>
+        </div>
+
+        <div class="results-actions">
+          <button id="exportCsvBtn" class="btn btn-primary" style="display: none;">Export CSV</button>
+          <button id="refreshBtn" class="btn btn-secondary">Refresh</button>
+        </div>
+      </div>
+
+      <div id="loadingMessage" class="loading-message">Loading results...</div>
+      <div id="errorMessage" class="error-message" style="display: none;"></div>
+
+      <div id="resultsContainer" class="results-container">
+        <table id="resultsTable" class="results-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Domain</th>
+              <th>IP</th>
+              <th>SSL Valid</th>
+              <th>SSL Expires</th>
+              <th>Registrar</th>
+              <th>WHOIS Expires</th>
+              <th>Scanned</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="resultsTableBody">
+          </tbody>
+        </table>
+        <div id="noResults" class="no-results" style="display: none;">
+          <p>No results found. Try adjusting your filters or perform a scan.</p>
+        </div>
+      </div>
+
+      <div class="pagination">
+        <button id="prevPage" class="btn btn-secondary" disabled>Previous</button>
+        <span id="pageInfo">Page 1</span>
+        <button id="nextPage" class="btn btn-secondary" disabled>Next</button>
+      </div>
+
+      <div class="back-link">
+        <a href="/dashboard.html">← Back to Dashboard</a>
+      </div>
+    </div>
+  </main>
+
+  <script type="module" src="/js/results.js"></script>
+</body>
+</html>
