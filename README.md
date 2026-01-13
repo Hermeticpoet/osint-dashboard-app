@@ -1,48 +1,79 @@
 # osint-dashboard
 
-A modular OSINT dashboard for scanning domains, gathering intelligence, and visualizing results. Includes a web dashboard and a powerful CLI tool for automated domain scanning.
+A production-ready OSINT (Open Source Intelligence) platform for domain scanning, intelligence gathering, and threat analysis. Combines a RESTful Express API with a powerful CLI tool for automated domain reconnaissance.
 
-## Table of Contents
+## Overview
 
-- [osint-dashboard](#osint-dashboard)
-- [Features](#features)
-- [Installation](#installation)
-- [Testing](#testing)
-- [Database Setup and Testing](#database-setup-and-testing)
-  - [Schema](#schema)
-  - [Indexes](#indexes)
-  - [Seeding Test Data](#seeding-test-data)
-- [Authentication and RBAC](#authentication-and-rbac)
-- [API Endpoints](#api-endpoints)
-  - [POST /scan](#post-scan)
-  - [GET /results](#get-results)
-  - [Advanced Filtering](#advanced-filtering)
-  - [GET /results/exportcsv](#get-resultsexportcsv)
-  - [DELETE /results/:id](#delete-resultsid)
-  - [Pagination support](#pagination-support)
-- [Utilities](#utilities)
-- [License](#license)
+osint-dashboard provides comprehensive domain intelligence through parallel WHOIS, SSL certificate, and IP resolution lookups. Results are stored in SQLite with advanced filtering, pagination, and CSV export capabilities. The system enforces role-based access control (RBAC) via JWT authentication, ensuring secure access to sensitive OSINT data.
+
+## Architecture
+
+```
+┌─────────────────┐
+│   CLI Tool      │  ← Batch scanning, automation
+│  (osint-scan)   │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  Express API    │  ← RESTful endpoints
+│   (server.js)   │
+└────────┬────────┘
+         │
+    ┌────┴────┐
+    ▼         ▼
+┌────────┐  ┌──────────┐
+│  Scan  │  │ Results  │
+│Service │  │  Query   │
+└────┬───┘  └────┬──────┘
+     │           │
+     └─────┬─────┘
+           ▼
+      ┌─────────┐
+      │ SQLite   │
+      │ Database │
+      └─────────┘
+```
+
+**Core Components:**
+
+- **Scan Pipeline**: `services/scanService.js` orchestrates WHOIS, SSL, and IP lookups
+- **API Layer**: Express routes with JWT authentication and RBAC middleware
+- **Data Layer**: SQLite with indexed columns for fast filtering
+- **CLI Tool**: Standalone scanner for batch operations
 
 ## Features
 
-- Domain scanning via CLI
-- WHOIS, SSL, and IP data collection
-- Input/output file support
-- Concurrency control
-- Express-based web API:
-  - `/scan` to insert results (admin-only)
-  - `/results` to query results (read-only and admin)
-  - `/results/:id` to delete a result (admin-only via DELETE)
-  - `/results/export.csv` to export results as CSV (admin-only)
-- Utilities for domain cleaning and normalization
-- Uses SQLite (`osint.db` created automatically on first run)
-- Permanent schema definition in `db/db.js` including `whois_expirationDate` column
-- SQLite indexes on `ssl_valid`, `registrar`, `created_at`, and `whois_expirationDate` for faster filtering
-- Seed script (`db/seed.sql`) for reproducible test data covering all filter cases
+### Domain Intelligence
+
+- **WHOIS Lookup**: Registrar, creation date, expiration date via RDAP (`.com` and `.net` domains)
+- **SSL Certificate Analysis**: Validity, issue/expiry dates, days remaining
+- **IP Resolution**: IPv4/IPv6 addresses via ip-api.com
+- **Partial Failure Handling**: Graceful degradation if individual lookups fail
+
+### API Capabilities
+
+- **RESTful Endpoints**: JSON-based API with consistent error handling
+- **Advanced Filtering**: Query by domain, SSL validity, registrar, date ranges
+- **Pagination**: Efficient result batching with `limit` and `offset`
+- **CSV Export**: Downloadable reports with all filter options
+- **Role-Based Access**: Admin and read-only roles with JWT authentication
+
+### CLI Tool
+
+- **Batch Scanning**: Process domains from files
+- **Concurrent Processing**: Configurable parallelism with `p-limit`
+- **Multiple Output Formats**: JSON and CSV support
+- **Verbose Mode**: Real-time progress and diagnostics
 
 ## Installation
 
-Clone the repo and install dependencies:
+### Prerequisites
+
+- Node.js 18+ with ESM support
+- npm or yarn
+
+### Setup
 
 ```zsh
 git clone https://github.com/hermeticpoet/osint-dashboard.git
@@ -50,445 +81,417 @@ cd osint-dashboard
 npm install
 ```
 
-## Testing
+### Environment Configuration
 
-This project uses Node.js ESM ("type": "module" in package.json) and Jest v30 with node --experimental-vm-modules.
-Run the full test suite (zsh):
-
-npm test
-Run only the protected routes integration tests:
-
-```zsh
-npm test -- __tests__/unit/protectedRoutes.test.js
-```
-
-Jest is already configured to run the ESM tests; if you invoke Node or Jest directly, ensure you include the --experimental-vm-modules flag so ESM modules load correctly.
-JWT secrets for tests
-The application and tests use a shared JWT secret:
-At runtime, set JWT_SECRET in your environment (e.g., via .env).
-For tests, if JWT_SECRET is not set, the test harness falls back to test-secret so that tokens generated in tests still verify correctly.
-Example (zsh):
-
-```zsh
-export JWT_SECRET="replace-with-a-strong-secret"
-npm test
-```
-
-Generating tokens via /login
-A stub login endpoint issues JWTs with role claims:
-POST /login with {"username":"admin","password":"secret"} → admin token
-POST /login with {"username":"user","password":"secret"} → read-only token
-Example (zsh):
-
-```zsh
-ADMIN_TOKEN=$(curl -s -X POST http://localhost:4000/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"secret"}' | jq -r '.token')
-
-USER_TOKEN=$(curl -s -X POST http://localhost:4000/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"user","password":"secret"}' | jq -r '.token')
-```
-
-You can then use these tokens with Authorization: Bearer <TOKEN> for the protected routes described below.
-
-## Database Setup and Testing
-
-### Schema
-
-The SQLite database (./data/osint.db) is auto-created on first server run. The results table includes:
-
-- id (INTEGER PRIMARY KEY)
-- domain (TEXT, required)
-- ip (TEXT, required)
-- ssl_valid (INTEGER, required; 1=true, 0=false)
-- ssl_valid_from (TEXT, required)
-- ssl_valid_to (TEXT, required)
-- ssl_days_remaining (INTEGER, required)
-- registrar (TEXT, optional)
-- whois_expirationDate (TEXT, optional; new column for WHOIS filters)
-- created_at (TEXT, required)
-
-### Indexes
-
-To accelerate filtering, the following indexes are created idempotently (IF NOT EXISTS):
-
-- idx_results_ssl_valid on ssl_valid
-- idx_results_registrar on registrar
-- idx_results_created_at on created_at
-- idx_results_whois_expiration on whois_expirationDate
-
-### Seeding Test Data
-
-A seed script (db/seed.sql) is provided to populate rows covering all filter cases.
-
-Run:
-
-```zsh
-sqlite3 ./data/osint.db < db/seed.sql
-```
-
-Verify:
-
-```zsh
-sqlite3 ./data/osint.db "SELECT id, domain, registrar, whois_expirationDate, created_at, ssl_valid FROM results;"
-```
-
-## Authentication and RBAC
-
-### Purpose
-
-Introduce stateless JWT authentication with role-based access control (RBAC) to enforce least privilege across protected endpoints.
-
-### Environment Setup
-
-**Required Keys:**
-
-- `JWT_SECRET`: Non-empty secret used to sign tokens.
-- `JWT_EXPIRES_IN`: Token lifetime (e.g., 1h).
-
-**Files to update:**
-
-- `.env`: Add actual values.
-- `.env.example`: Include the keys without secrets.
+Create a `.env` file:
 
 ```env
-# .env
-JWT_SECRET=replace-with-a-strong-secret
+JWT_SECRET=your-strong-secret-key-here
 JWT_EXPIRES_IN=1h
+PORT=4000
 ```
 
-### Roles Matrix
-
-| Endpoint                  | Admin | Read-only |
-| ------------------------- | :---: | :-------: |
-| POST `/scan`              |  ✅   |    ❌     |
-| GET `/results`            |  ✅   |    ✅     |
-| GET `/results/export.csv` |  ✅   |    ❌     |
-| DELETE `/results/:id`     |  ✅   |    ❌     |
-
-### Development login (stub)
-
-**Endpoint:** `POST /login`
-**Purpose:** Issues tokens for development with role claim.
-**Sample users:**
-
-- `admin`: `{"username":"admin","password":"secret"}`
-- `read-only`: `{"username":"user","password":"secret"}`
-
-### Curl examples
+## Running the Server
 
 ```zsh
-# Issue tokens (dev stub)
-ADMIN_TOKEN=$(curl -s -X POST http://localhost:4000/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"secret"}' | jq -r '.token')
-
-USER_TOKEN=$(curl -s -X POST http://localhost:4000/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"user","password":"secret"}' | jq -r '.token')
-
-# GET /results
-curl -i http://localhost:4000/results -H "Authorization: Bearer $ADMIN_TOKEN"
-curl -i http://localhost:4000/results -H "Authorization: Bearer $USER_TOKEN"
-curl -i http://localhost:4000/results
-curl -i http://localhost:4000/results -H "Authorization: Bearer invalidtoken"
-
-# GET /results/export.csv
-curl -i http://localhost:4000/results/export.csv -H "Authorization: Bearer $ADMIN_TOKEN"
-curl -i http://localhost:4000/results/export.csv -H "Authorization: Bearer $USER_TOKEN"
-curl -i http://localhost:4000/results/export.csv
-curl -i http://localhost:4000/results/export.csv -H "Authorization: Bearer invalidtoken"
-
-# DELETE /results/:id
-curl -i -X DELETE http://localhost:4000/results/42 -H "Authorization: Bearer $ADMIN_TOKEN"
-curl -i -X DELETE http://localhost:4000/results/42 -H "Authorization: Bearer $USER_TOKEN"
-curl -i -X DELETE http://localhost:4000/results/42
-curl -i -X DELETE http://localhost:4000/results/42 -H "Authorization: Bearer invalidtoken"
-
-# POST /scan
-curl -i -X POST http://localhost:4000/scan \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"domain":"example.com"}'
-curl -i -X POST http://localhost:4000/scan \
-  -H "Authorization: Bearer $USER_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"domain":"example.com"}'
-curl -i -X POST http://localhost:4000/scan \
-  -H "Content-Type: application/json" \
-  -d '{"domain":"example.com"}'
-curl -i -X POST http://localhost:4000/scan \
-  -H "Authorization: Bearer invalidtoken" \
-  -H "Content-Type: application/json" \
-  -d '{"domain":"example.com"}'
+npm start
 ```
 
-### Error Semantics
+The API will be available at `http://localhost:4000` (or your configured `PORT`).
 
-**Missing token:** `401 Unauthorized` with `{"error":"Token required"}`.
-**Invalid or expired token:** `403 Forbidden` with `{"error":"Invalid or expired token"}`.
-**Insufficient role:** `403 Forbidden` with `{"error":"Forbidden: insufficient role"}`.
+### Development Mode
+
+```zsh
+npm run dev:start
+```
+
+## CLI Usage
+
+### Install Globally
+
+```zsh
+npm install -g .
+```
+
+### Basic Usage
+
+```zsh
+# Single domain scan
+osint-scan example.com
+
+# Batch scan from file
+osint-scan --input domains.txt --output results.json
+
+# CSV output with verbose logging
+osint-scan --input domains.txt --output results.csv --format csv --verbose
+
+# Concurrency control
+osint-scan --input domains.txt --concurrency 5
+```
+
+### CLI Options
+
+- `--input <file>`: Input file with domains (one per line)
+- `--output <file>`: Output file path
+- `--format <json|csv>`: Output format (default: json)
+- `--concurrency <n>`: Maximum parallel scans (default: 10)
+- `--verbose`: Enable detailed progress output
 
 ## API Endpoints
 
-The Express server runs on `http://localhost:4000` by default.
+### Authentication
 
-### POST /scan
-
-Initiates a domain scan and stores the result in the database.
-This endpoint is **admin-only** and requires a valid JWT.
-
-#### Authentication
+All protected endpoints require a JWT token in the `Authorization` header:
 
 ```http
-POST /login
-Content-Type: application/json
-
-{
-  "username": "admin",
-  "password": "secret"
-}
+Authorization: Bearer <your-jwt-token>
 ```
 
-Successful Response:
+#### POST /login
+
+Development stub for token issuance:
+
+```zsh
+curl -X POST http://localhost:4000/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"secret"}'
+```
+
+**Response:**
 
 ```json
 {
-  "token": "<jwt_here>"
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
 ```
 
-Use this token in the **Authorization** header:
+**Credentials:**
 
-```http
-Authorization: Bearer <jwt_here>
+- Admin: `{"username":"admin","password":"secret"}`
+- Read-only: `{"username":"user","password":"secret"}`
+
+### Scan Endpoints
+
+#### POST /scan
+
+Initiates a domain scan and stores the result.
+
+**Authentication:** Admin-only
+
+**Request:**
+
+```zsh
+curl -X POST http://localhost:4000/scan \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"domain":"example.com"}'
 ```
 
-Request:
-
-```http
-POST /scan
-Content-Type: application/json
-Authorization: Bearer <admin_jwt>
-```
-
-Body:
+**Success Response (200):**
 
 ```json
 {
-  "domain": "example.com"
-}
-```
-
-Response:
-
-```json
-{
-  "id": 62,
+  "id": 42,
   "result": {
     "domain": "example.com",
-    "ip": "104.18.26.120",
+    "ip": "93.184.216.34",
     "ssl": {
       "valid": true,
-      "validFrom": "2025-12-16T19:39:32.000Z",
-      "validTo": "2026-03-16T18:32:44.000Z",
-      "daysRemaining": 68
+      "validFrom": "2024-01-01",
+      "validTo": "2025-12-31",
+      "daysRemaining": 300
     },
     "whois": {
-      "registrarName": null,
-      "creationDate": null,
-      "expirationDate": null
+      "registrarName": "NameCheap",
+      "creationDate": "2020-01-01T00:00:00Z",
+      "expirationDate": "2026-01-01T00:00:00Z"
     },
     "timestamp": "2026-01-07T14:02:43.117Z"
   }
 }
 ```
 
-**Scan Details**
-The scan performs three independent lookups:
+**Error Responses:**
 
-**WHOIS**: registrar, creation date, expiration date
+- `400`: `{"id": null, "result": "INVALID_DOMAIN"}` - Invalid or missing domain
+- `401`: `{"error": "Token required"}` - Missing authentication
+- `403`: `{"error": "Forbidden"}` - Insufficient permissions
+- `500`: `{"id": null, "result": "SCAN_FAILED"}` - All lookups failed
 
-**SSL**: certificate validity, dates, days remaining
+### Results Endpoints
 
-**IP**: resolved IPv4/IPv6 address via ip-api.com
+#### GET /results
 
-Partial failures are allowed. If all three fail, the service returns:
+Retrieves stored scan results with optional filtering and pagination.
+
+**Authentication:** Admin and read-only
+
+**Query Parameters:**
+
+| Parameter | Type | Description | Example |
+| --------- | ---- | ----------- | ------- |
+
+| `domain` | string | Exact domain match (case-insensitive) | `example.com` |
+| `limit` | integer | Maximum rows (default: 50) | `100` |
+| `offset` | integer | Rows to skip (default: 0) | `50` |
+| `since` | ISO timestamp | Filter by creation date | `2025-01-01T00:00:00Z` |
+| `ssl_valid` | boolean | Filter by SSL validity | `true` or `false` |
+| `registrar` | string | Exact registrar match | `NameCheap` |
+| `created_from` | YYYY-MM-DD | Start date for scan date range | `2025-11-01` |
+| `created_to` | YYYY-MM-DD | End date for scan date range | `2025-12-31` |
+| `whois_expiration_from` | YYYY-MM-DD | Start date for WHOIS expiration | `2025-12-01` |
+| `whois_expiration_to` | YYYY-MM-DD | End date for WHOIS expiration | `2026-01-31` |
+
+**Example:**
+
+```zsh
+curl "http://localhost:4000/results?domain=example.com&limit=10" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**Response:**
 
 ```json
-{ "error": "scan failed" }
+[
+  {
+    "id": 1,
+    "domain": "example.com",
+    "ip": "93.184.216.34",
+    "ssl_valid": 1,
+    "ssl_valid_from": "2024-01-01",
+    "ssl_valid_to": "2025-12-31",
+    "ssl_days_remaining": 300,
+    "registrar": "NameCheap",
+    "whois_expirationDate": "2026-01-01",
+    "created_at": "2026-01-07T14:02:43.117Z"
+  }
+]
 ```
 
-**Persistence**
-Each scan result is stored in the **results** table with:
+#### GET /results/export.csv
 
-- **id**
-- **domain**
-- **ip**
-- **ssl** (JSON)
-- **whois** (JSON)
-- **timestamp**
+Exports results as CSV with all filtering options available.
 
-### GET /results
+**Authentication:** Admin-only
 
-Fetches stored results with optional filters.
-Auth: Read-only and admin. Requires `Authorization: Bearer <JWT_TOKEN>`.
-
-Query parameters:
-
-- `domain`: filter by exact domain
-- `limit`: maximum number of rows (default 50)
-- `since`: ISO timestamp to filter by creation date
-
-Example:
-
-```zsh
-curl "http://localhost:4000/results?domain=example.com&limit=2" \
-  -H "Authorization: Bearer <JWT_TOKEN>"
-```
-
-### Advanced Filtering
-
-`GET /results` supports these powerful optional query parameters:
-
-| Parameter                                       | Description                                  | Example / Values       |
-| ----------------------------------------------- | -------------------------------------------- | ---------------------- |
-| `domain`                                        | Exact domain match (case-insensitive)        | `example.com`          |
-| `limit`                                         | Maximum rows to return (default: 50)         | `100`                  |
-| `offset`                                        | Rows to skip for pagination (default: 0)     | `50`                   |
-| `since`                                         | ISO timestamp filter on `created_at`         | `2025-01-01T00:00:00Z` |
-| `ssl_valid`                                     | Filter valid or invalid/expired certificates | `true` or `false`      |
-| `registrar`                                     | Exact registrar name                         | `NameCheap`, `GoDaddy` |
-| `created_from` / `created_to`                   | YYYY-MM-DD bounds for scan date              | `2025-11-01`           |
-| `whois_expiration_from` / `whois_expiration_to` | YYYY-MM-DD bounds for WHOIS expiration       | `2025-12-04`           |
-
-#### Real-world threat hunting examples
-
-```zsh
-# Expired or invalid SSL certificates (high risk)
-curl "http://localhost:4000/results?ssl_valid=false&limit=200" \
-  -H "Authorization: Bearer <JWT_TOKEN>"
-```
-
-```zsh
-# Domain expiring in the next 30 days (takeover target)
-curl "http://localhost:4000/results?whois_expiration_from=2025-12-04&whois_expiration_to=2026-01-04" \
-  -H "Authorization: Bearer <JWT_TOKEN>"
-```
-
-```zsh
-# Recently scanned domains from a specific registrar
-curl "http://localhost:4000/results?created_from=2025-11-01&registrar=NameCheap&limit=100" \
-  -H "Authorization: Bearer <JWT_TOKEN>"
-```
-
-```zsh
-# Pagination – third page of results
-curl "http://localhost:4000/results?limit=50&offset=100" \
-  -H "Authorization: Bearer <JWT_TOKEN>"
-```
-
-### Get /results/export.csv
-
-Exports results in CSV format. Auth: Admin-only. Requires Authorization: Bearer <JWT_TOKEN>. Responds with a CSV file including headers and rows describing domain results.
-
-Example:
-
-```zsh
-curl http://localhost:4000/results/export.csv \
-  -H "Authorization: Bearer <JWT_TOKEN>"
-```
-
-### DELETE /results/:id
-
-Deletes a stored result by ID. Auth: Admin-only. Requires `Authorization: Bearer <JWT_TOKEN>`. Returns `200 OK` if the record exists and is deleted, `404 Not Found` if the record does not exist.
-
-Example:
-
-```zsh
-curl -X DELETE http://localhost:4000/results/42 \
-  -H "Authorization: Bearer <JWT_TOKEN>"
-```
-
-## Utilities
-
-`cleanDomains(list)` – `utils/domainUtils.js`
-
-Cleans and deduplicates domain lists:
-
-- Converts to lowercase
-- Strips `http://`, `https://`, paths, queries, and ports
-- Validates proper FQDN format
-- Returns a **sorted array of unique valid domains**
-
-Ideal for preprocessing bulk lists before batch scanning.
-
-### GET `/results/export.csv`
-
-Exports filtered results as a downloadable CSV file (supports **all the same filters** as `GET /results`).
-Auth: Admin-only. Requires `Authorization: Bearer <JWT_TOKEN>`.
-
-#### Examples
+**Example:**
 
 ```zsh
 # Full export
 curl -OJ "http://localhost:4000/results/export.csv" \
-  -H "Authorization: Bearer <JWT_TOKEN>"
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# Filtered export
+curl -o expired-ssl.csv \
+  "http://localhost:4000/results/export.csv?ssl_valid=false&limit=1000" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
 ```
 
-```zsh
-# Export only domains expiring this month
-curl -o expiring-december.csv "http://localhost:4000/results/export.csv?whois_expiration_from=2025-12-01&whois_expiration_to=2025-12-31" \
-  -H "Authorization: Bearer <JWT_TOKEN>"
-```
+**Response Headers:**
 
-```zsh
-# Paginated and filtered export
-curl -o page3.csv "http://localhost:4000/results/export.csv?ssl_valid=false&limit=100&offset=200" \
-  -H "Authorization: Bearer <JWT_TOKEN>"
-```
+- `Content-Type: text/csv; charset=utf-8`
+- `Content-Disposition: attachment; filename="domain-results.csv"`
 
-#### Response Headers
+#### DELETE /results/:id
 
-Content-Type: text/csv
-Content-Disposition: attachment; filename="results.csv"
+Deletes a specific scan result by ID.
 
-### DELETE `/results/:id`
+**Authentication:** Admin-only
 
-Permanently removes a specific scan result from the database.
-Auth: Admin-only. Requires `Authorization: Bearer <JWT_TOKEN>`.
+**Example:**
 
 ```zsh
 curl -X DELETE http://localhost:4000/results/42 \
-  -H "Authorization: Bearer <JWT_TOKEN>"
-# → { "deleted": true }
+  -H "Authorization: Bearer $ADMIN_TOKEN"
 ```
 
-#### Error responses
-
-Invalid or malformed ID:
+**Success Response (200):**
 
 ```json
-{ "error": "Invalid result id" }
+{
+  "deleted": true
+}
 ```
 
-### Pagination support
+**Error Responses:**
 
-All GET /results and GET /results/export.csv queries support:
+- `400`: `{"error": "Invalid result id"}` - Malformed ID
+- `404`: `{"error": "Result not found"}` - ID doesn't exist
+- `403`: `{"error": "Forbidden"}` - Insufficient permissions
 
-- limit – maximum rows to return (default: 50)
-- offset – number of rows to skip (default: 0)
+## Authentication & RBAC
+
+### Role Matrix
+
+| Endpoint | Admin | Read-only |
+| -------- | :---: | :-------: |
+
+| `POST /scan` | ✅ | ❌ |
+| `GET /results` | ✅ | ✅ |
+| `GET /results/export.csv` | ✅ | ❌ |
+| `DELETE /results/:id` | ✅ | ❌ |
+
+### Error Semantics
+
+- **Missing Token**: `401 Unauthorized` → `{"error": "Token required"}`
+- **Invalid/Expired Token**: `403 Forbidden` → `{"error": "Invalid or expired token"}`
+- **Insufficient Role**: `403 Forbidden` → `{"error": "Forbidden"}`
+
+### Token Usage
 
 ```zsh
-# Third page of results (50 per page)
-curl "http://localhost:4000/results?limit=50&offset=100" \
-  -H "Authorization: Bearer <JWT_TOKEN>"
+# Get admin token
+ADMIN_TOKEN=$(curl -s -X POST http://localhost:4000/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"secret"}' | jq -r '.token')
+
+# Use in requests
+curl -H "Authorization: Bearer $ADMIN_TOKEN" http://localhost:4000/results
 ```
 
-Invalid limit or offset values return HTTP 400 with a clear error message.
+## Database Schema
 
-Full lifecycle supported: insert → query → filter → paginate → export → delete
+The SQLite database (`./data/osint.db`) is auto-created on first run.
+
+### Results Table
+
+| Column | Type | Constraints | Description |
+| ------ | ---- | ----------- | ----------- |
+
+| `id` | INTEGER | PRIMARY KEY | Auto-incrementing ID |
+| `domain` | TEXT | NOT NULL | Normalized domain name |
+| `ip` | TEXT | NOT NULL | Resolved IP address |
+| `ssl_valid` | INTEGER | NOT NULL | 1=true, 0=false |
+| `ssl_valid_from` | TEXT | NOT NULL | Certificate issue date |
+| `ssl_valid_to` | TEXT | NOT NULL | Certificate expiry date |
+| `ssl_days_remaining` | INTEGER | NOT NULL | Days until expiry |
+| `registrar` | TEXT | NULL | WHOIS registrar name |
+| `whois_expirationDate` | TEXT | NULL | Domain expiration date |
+| `created_at` | TEXT | NOT NULL | Scan timestamp (ISO) |
+
+### Indexes
+
+Optimized indexes for common filter operations:
+
+- `idx_results_ssl_valid` on `ssl_valid`
+- `idx_results_registrar` on `registrar`
+- `idx_results_created_at` on `created_at`
+- `idx_results_whois_expiration` on `whois_expirationDate`
+
+### Seeding Test Data
+
+```zsh
+sqlite3 ./data/osint.db < db/seed.sql
+```
+
+## Filtering & Pagination
+
+### Threat Hunting Examples
+
+**Expired SSL Certificates:**
+
+```zsh
+curl "http://localhost:4000/results?ssl_valid=false&limit=200" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**Domains Expiring Soon:**
+
+```zsh
+curl "http://localhost:4000/results?whois_expiration_from=2025-12-01&whois_expiration_to=2026-01-31" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**Registrar Analysis:**
+
+```zsh
+curl "http://localhost:4000/results?registrar=NameCheap&created_from=2025-11-01" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**Pagination:**
+
+```zsh
+# Page 3 (50 per page)
+curl "http://localhost:4000/results?limit=50&offset=100" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+## CSV Export
+
+The CSV export endpoint supports all filtering and pagination options available in `GET /results`.
+
+**Features:**
+
+- Header comments with export metadata
+- Flattened schema (no nested JSON)
+- Proper CSV escaping
+- Hard limit of 50,000 rows per export
+
+**Example CSV Output:**
+
+```csv
+# Domain Results Export
+# Generated: 2026-01-07T14:02:43.117Z
+# Total rows exported: 42
+# Applied limit: 50
+# Offset: 0
+
+"id","domain","created_at","ip","ssl_valid","ssl_valid_from","ssl_valid_to","ssl_days_remaining","registrar","whois_creationDate","whois_expirationDate"
+1,"example.com","2026-01-07T14:02:43.117Z","93.184.216.34",1,"2024-01-01","2025-12-31",300,"NameCheap","2020-01-01T00:00:00Z","2026-01-01T00:00:00Z"
+```
+
+## Utilities
+
+### Domain Utilities (`utils/domainUtils.js`)
+
+**`normalizeDomain(input)`**
+
+- Strips protocols, paths, credentials, ports
+- Converts to lowercase
+- Returns normalized domain or empty string
+
+**`isValidDomain(input)`**
+
+- Validates FQDN format
+- Checks TLD length (≥2 characters)
+- Validates label structure
+
+**`cleanDomains(list)`**
+
+- Batch normalization and validation
+- Deduplication
+- Returns sorted array of unique valid domains
+
+## Testing
+
+### Running Tests
+
+```zsh
+# Full test suite
+npm test
+
+# Specific test file
+npm test -- __tests__/unit/scanController.test.js
+
+# Integration tests
+npm test -- __tests__/unit/protectedRoutes.test.js
+```
+
+### Test Configuration
+
+- **Runtime**: Node.js ESM (`"type": "module"`)
+- **Framework**: Jest v30 with `--experimental-vm-modules`
+- **Coverage**: ~97% controller coverage, ~95% middleware coverage
+
+### JWT Secrets for Tests
+
+Tests use `JWT_SECRET` from environment, falling back to `test-secret` if unset:
+
+```zsh
+export JWT_SECRET="test-secret"
+npm test
+```
 
 ## License
 
@@ -496,20 +499,8 @@ MIT License
 
 Copyright (c) 2025 Kevin Walton
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights  
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell  
-copies of the Software, and to permit persons to whom the Software is  
-furnished to do so, subject to the following conditions:
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in  
-all copies or substantial portions of the Software.
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR  
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,  
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE  
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER  
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,  
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN  
-THE SOFTWARE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
