@@ -1,6 +1,7 @@
-import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+// __tests__/unit/scanController.test.js
+import { describe, test, expect, jest, beforeEach } from '@jest/globals';
 
-// ESM‑compatible mocks
+// ESM-compatible mocks
 await jest.unstable_mockModule('../../services/scanService.js', () => ({
   __esModule: true,
   scanDomain: jest.fn(),
@@ -30,74 +31,194 @@ describe('handleScan', () => {
     };
   });
 
-  it('returns 400 when domain is missing', async () => {
-    await handleScan(req, res);
+  describe('domain validation', () => {
+    test('returns 400 with INVALID_DOMAIN when domain is missing', async () => {
+      await handleScan(req, res);
 
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({ error: 'domain is required' });
-  });
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        id: null,
+        result: 'INVALID_DOMAIN',
+      });
+      expect(scanDomain).not.toHaveBeenCalled();
+    });
 
-  it('returns 400 when scanService throws INVALID_DOMAIN', async () => {
-    req.body.domain = '   ';
-    scanDomain.mockRejectedValue(new Error('INVALID_DOMAIN'));
+    test('returns 400 with INVALID_DOMAIN when domain is empty string', async () => {
+      req.body.domain = '';
 
-    await handleScan(req, res);
+      await handleScan(req, res);
 
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({ error: 'invalid domain' });
-  });
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        id: null,
+        result: 'INVALID_DOMAIN',
+      });
+      expect(scanDomain).not.toHaveBeenCalled();
+    });
 
-  it('successful scan inserts into DB and returns result', async () => {
-    req.body.domain = 'example.com';
+    test('returns 400 with INVALID_DOMAIN when domain is only whitespace', async () => {
+      req.body.domain = '   ';
 
-    const mockResult = {
-      domain: 'example.com',
-      ip: '1.1.1.1',
-      ssl: { valid: true },
-      whois: { registrarName: 'Cloudflare' },
-      timestamp: '2026-01-07T12:00:00Z',
-    };
+      await handleScan(req, res);
 
-    scanDomain.mockResolvedValue(mockResult);
-    insertResult.mockReturnValue(42);
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        id: null,
+        result: 'INVALID_DOMAIN',
+      });
+      expect(scanDomain).not.toHaveBeenCalled();
+    });
 
-    await handleScan(req, res);
+    test('returns 400 with INVALID_DOMAIN when domain has invalid characters', async () => {
+      req.body.domain = 'exa$mple.com';
 
-    expect(insertResult).toHaveBeenCalledWith(mockResult);
-    expect(res.json).toHaveBeenCalledWith({
-      id: 42,
-      result: mockResult,
+      await handleScan(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        id: null,
+        result: 'INVALID_DOMAIN',
+      });
+      expect(scanDomain).not.toHaveBeenCalled();
+    });
+
+    test('returns 400 with INVALID_DOMAIN when domain has no TLD', async () => {
+      req.body.domain = 'localhost';
+
+      await handleScan(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        id: null,
+        result: 'INVALID_DOMAIN',
+      });
+      expect(scanDomain).not.toHaveBeenCalled();
+    });
+
+    test('returns 400 with INVALID_DOMAIN when domain has short TLD', async () => {
+      req.body.domain = 'example.c';
+
+      await handleScan(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        id: null,
+        result: 'INVALID_DOMAIN',
+      });
+      expect(scanDomain).not.toHaveBeenCalled();
+    });
+
+    test('returns 400 with INVALID_DOMAIN when domain has leading dash', async () => {
+      req.body.domain = '-example.com';
+
+      await handleScan(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        id: null,
+        result: 'INVALID_DOMAIN',
+      });
+      expect(scanDomain).not.toHaveBeenCalled();
+    });
+
+    test('normalizes domain before validation', async () => {
+      req.body.domain = '  HTTPS://Example.COM/path  ';
+
+      const mockResult = {
+        domain: 'example.com',
+        ip: '1.1.1.1',
+        ssl: { valid: true },
+        whois: { registrarName: 'Cloudflare' },
+        timestamp: '2026-01-07T12:00:00Z',
+      };
+
+      scanDomain.mockResolvedValue(mockResult);
+      insertResult.mockReturnValue(42);
+
+      await handleScan(req, res);
+
+      expect(scanDomain).toHaveBeenCalledWith('  HTTPS://Example.COM/path  ');
+      expect(res.json).toHaveBeenCalledWith({
+        id: 42,
+        result: mockResult,
+      });
     });
   });
 
-  it('returns 500 when scanService throws SCAN_FAILED', async () => {
-    req.body.domain = 'example.com';
-    scanDomain.mockRejectedValue(new Error('SCAN_FAILED'));
+  describe('scanDomain error handling', () => {
+    test('returns 400 with INVALID_DOMAIN when scanDomain throws INVALID_DOMAIN', async () => {
+      req.body.domain = 'example.com';
+      scanDomain.mockRejectedValue(new Error('INVALID_DOMAIN'));
 
-    await handleScan(req, res);
+      await handleScan(req, res);
 
-    expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({ error: 'scan failed' });
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        id: null,
+        result: 'INVALID_DOMAIN',
+      });
+    });
+
+    test('returns 500 with SCAN_FAILED when scanDomain throws SCAN_FAILED', async () => {
+      req.body.domain = 'example.com';
+      scanDomain.mockRejectedValue(new Error('SCAN_FAILED'));
+
+      await handleScan(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({
+        id: null,
+        result: 'SCAN_FAILED',
+      });
+    });
   });
 
-  it('returns 500 when insertResult throws', async () => {
-    req.body.domain = 'example.com';
+  describe('successful scan', () => {
+    test('successful scan inserts into DB and returns result', async () => {
+      req.body.domain = 'example.com';
 
-    scanDomain.mockResolvedValue({
-      domain: 'example.com',
-      ip: '1.1.1.1',
-      ssl: {},
-      whois: {},
-      timestamp: '2026-01-07T12:00:00Z',
+      const mockResult = {
+        domain: 'example.com',
+        ip: '1.1.1.1',
+        ssl: { valid: true },
+        whois: { registrarName: 'Cloudflare' },
+        timestamp: '2026-01-07T12:00:00Z',
+      };
+
+      scanDomain.mockResolvedValue(mockResult);
+      insertResult.mockReturnValue(42);
+
+      await handleScan(req, res);
+
+      expect(scanDomain).toHaveBeenCalledWith('example.com');
+      expect(insertResult).toHaveBeenCalledWith(mockResult);
+      expect(res.json).toHaveBeenCalledWith({
+        id: 42,
+        result: mockResult,
+      });
     });
 
-    insertResult.mockImplementation(() => {
-      throw new Error('DB_FAIL');
+    test('returns 500 when insertResult throws', async () => {
+      req.body.domain = 'example.com';
+
+      scanDomain.mockResolvedValue({
+        domain: 'example.com',
+        ip: '1.1.1.1',
+        ssl: {},
+        whois: {},
+        timestamp: '2026-01-07T12:00:00Z',
+      });
+
+      insertResult.mockImplementation(() => {
+        throw new Error('DB_FAIL');
+      });
+
+      await handleScan(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({
+        error: 'failed to save result',
+      });
     });
-
-    await handleScan(req, res);
-
-    expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({ error: 'failed to save result' });
   });
 });
